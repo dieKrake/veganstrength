@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="de">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta name="theme-color" content="#10251d">
+    <meta name="description" content="Dein lokaler veganer Trainings- und Proteintracker">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./icon-192.png">
+    <title>Vegan Strength</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0d1713;
+            --card: #182920;
+            --card2: #20352a;
+            --border: #365044;
+            --text: #f0f8f1;
+            --muted: #b1c6b8;
+            --green: #8fe5a2;
+            --accent: #275f42
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 15px/1.45 system-ui, -apple-system, Roboto, sans-serif
+        }
+
+        button,
+        input,
+        select {
+            font: inherit
+        }
+
+        button {
+            cursor: pointer
+        }
+
+        button:focus-visible,
+        input:focus-visible,
+        select:focus-visible {
+            outline: 2px solid var(--green);
+            outline-offset: 2px
+        }
+
+        .wrap {
+            max-width: 650px;
+            margin: auto;
+            padding: 22px 16px 115px
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px
+        }
+
+        h1 {
+            font-size: 25px;
+            margin: 0;
+            letter-spacing: -.7px
+        }
+
+        h2 {
+            font-size: 19px;
+            margin: 0 0 12px
+        }
+
+        h3 {
+            font-size: 16px;
+            margin: 0 0 8px
+        }
+
+        .muted,
+        .small {
+            color: var(--muted)
+        }
+
+        .small {
+            font-size: 12px
+        }
+
+        .eyebrow {
+            color: var(--green);
+            font-weight: 750;
+            font-size: 11px;
+            letter-spacing: 1.2px;
+            text-transform: uppercase
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 17px;
+            margin-bottom: 14px
+        }
+
+        .hero {
+            background: linear-gradient(125deg, #244b34, #14291f);
+            border-color: #467356
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px
+        }
+
+        .stack {
+            display: grid;
+            gap: 10px
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px
+        }
+
+        .pill {
+            display: inline-block;
+            border-radius: 100px;
+            background: #2b4836;
+            padding: 5px 9px;
+            color: #baf1c7;
+            font-size: 12px
+        }
+
+        .btn {
+            border: 1px solid #59806a;
+            border-radius: 12px;
+            padding: 11px 14px;
+            background: #2b503a;
+            color: white;
+            font-weight: 700;
+            min-height: 43px
+        }
+
+        .btn.primary {
+            background: var(--green);
+            color: #10251d;
+            border-color: var(--green)
+        }
+
+        .btn.ghost {
+            background: transparent;
+            color: var(--text)
+        }
+
+        .btn.danger {
+            border-color: #b46b6b;
+            color: #ffd5d5;
+            background: transparent
+        }
+
+        .btn:disabled {
+            opacity: .45
+        }
+
+        .wide {
+            width: 100%
+        }
+
+        .value {
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -1px
+        }
+
+        .progress {
+            height: 11px;
+            background: #34483c;
+            border-radius: 20px;
+            overflow: hidden;
+            margin: 10px 0
+        }
+
+        .progress>div {
+            height: 100%;
+            background: var(--green);
+            transition: width .2s
+        }
+
+        .input {
+            background: #101f18;
+            border: 1px solid #54705d;
+            color: white;
+            border-radius: 11px;
+            padding: 11px;
+            width: 100%;
+            min-width: 0
+        }
+
+        .input[type=number] {
+            appearance: textfield
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 5px
+        }
+
+        .field {
+            min-width: 0;
+            flex: 1
+        }
+
+        .exercise {
+            border-top: 1px solid var(--border);
+            padding: 13px 0
+        }
+
+        .exercise:first-child {
+            border-top: 0
+        }
+
+        .sets {
+            display: grid;
+            gap: 7px;
+            margin-top: 10px
+        }
+
+        .setrow {
+            display: grid;
+            grid-template-columns: 38px 1fr 1fr 48px;
+            gap: 7px;
+            align-items: end
+        }
+
+        .setrow .input {
+            text-align: center;
+            padding: 9px 3px
+        }
+
+        .setrow .btn {
+            padding: 8px 0
+        }
+
+        .setrow.done {
+            opacity: .65
+        }
+
+        .tabs {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #14251c;
+            border-top: 1px solid #3d5746;
+            display: flex;
+            justify-content: center;
+            padding: 8px 8px max(9px, env(safe-area-inset-bottom));
+            z-index: 10
+        }
+
+        .tabs>button {
+            flex: 1;
+            max-width: 140px;
+            background: transparent;
+            color: var(--muted);
+            border: 0;
+            border-radius: 12px;
+            padding: 7px 2px;
+            font-size: 11px
+        }
+
+        .tabs>button.active {
+            color: var(--green);
+            background: #294633
+        }
+
+        .tabs span {
+            display: block;
+            font-size: 21px
+        }
+
+        .section {
+            display: none
+        }
+
+        .section.active {
+            display: block
+        }
+
+        .foodrow {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            border-top: 1px solid var(--border);
+            padding: 11px 0
+        }
+
+        .foodrow:first-child {
+            border: 0
+        }
+
+        .foodrow .grow {
+            flex: 1;
+            min-width: 0
+        }
+
+        .foodrow .btn {
+            padding: 5px 9px;
+            min-height: 34px
+        }
+
+        .mini {
+            font-size: 12px
+        }
+
+        .notice {
+            padding: 12px;
+            border: 1px solid #55715c;
+            border-radius: 12px;
+            color: #d3e5d5;
+            background: #22362a
+        }
+
+        .chart {
+            display: flex;
+            align-items: end;
+            gap: 5px;
+            height: 120px;
+            border-bottom: 1px solid #506958;
+            padding-top: 12px
+        }
+
+        .bar {
+            flex: 1;
+            min-width: 4px;
+            background: #70d895;
+            border-radius: 4px 4px 0 0
+        }
+
+        .stat {
+            background: var(--card2);
+            border-radius: 13px;
+            padding: 12px
+        }
+
+        .stat strong {
+            font-size: 22px
+        }
+
+        .spaced {
+            margin-top: 14px
+        }
+
+        .hidden {
+            display: none !important
+        }
+
+        @media(min-width:720px) {
+            .wrap {
+                padding-top: 36px
+            }
+
+            .tabs {
+                left: 50%;
+                transform: translateX(-50%);
+                max-width: 650px;
+                border-left: 1px solid var(--border);
+                border-right: 1px solid var(--border)
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="wrap">
+        <header>
+            <div>
+                <div class="eyebrow">Dein Home Gym</div>
+                <h1>🌱 Vegan Strength</h1>
+            </div><span id="offline" class="pill" aria-live="polite">Lokal</span>
+        </header>
+        <section id="home" class="section active">
+            <div class="card hero">
+                <div class="eyebrow">Dein nächstes Workout</div>
+                <h2 id="nextTitle" style="margin:9px 0">Upper A</h2>
+                <p id="nextSub" class="muted"></p><button class="btn primary wide" id="startNext">Training öffnen
+                    →</button>
+            </div>
+            <div class="grid">
+                <div class="stat">
+                    <div class="small">Protein heute</div><strong id="homeProtein">0 / 150 g</strong>
+                </div>
+                <div class="stat">
+                    <div class="small">Workouts diese Woche</div><strong id="homeSessions">0 / 4</strong>
+                </div>
+            </div>
+            <div class="card spaced">
+                <div class="row">
+                    <h3>Proteinziel</h3><button class="btn ghost" data-go="protein">Erfassen →</button>
+                </div>
+                <div class="progress">
+                    <div id="homeProgress" style="width:0%"></div>
+                </div>
+                <div class="small" id="homeRemaining"></div>
+            </div>
+            <div class="card">
+                <h3>Deine Ausgangswerte</h3>
+                <div class="grid">
+                    <div><span class="muted">Klimmzüge</span>
+                        <div class="value">3</div>
+                    </div>
+                    <div><span class="muted">Push-ups</span>
+                        <div class="value">6</div>
+                    </div>
+                </div>
+                <p class="small">8-Wochen-Ziele: 5 Klimmzüge und 10 Push-ups – Orientierungswerte, keine Garantie.</p>
+            </div>
+        </section>
+        <section id="training" class="section">
+            <h2>Training</h2>
+            <div class="card"><label for="workoutSelect">Workout wählen</label><select class="input"
+                    id="workoutSelect"></select>
+                <p class="small" id="workoutInfo"></p>
+                <div class="row"><span class="pill" id="sessionStatus">Noch nicht gestartet</span><button
+                        class="btn ghost" id="resetWorkout">Eingaben leeren</button></div>
+            </div>
+            <div class="card">
+                <div class="row">
+                    <h3>Deine Übungen</h3><span class="small">1–3 Wdh. in Reserve</span>
+                </div>
+                <div id="exerciseList"></div><button class="btn primary wide" id="saveWorkout">Workout abschließen &
+                    speichern</button>
+            </div>
+            <div class="card">
+                <div class="row">
+                    <div>
+                        <div class="eyebrow">Pausentimer</div>
+                        <div class="value" id="timerDisplay">01:30</div>
+                    </div><button class="btn" id="timerStart">▶ Start</button>
+                </div>
+                <div class="row spaced"><button class="btn ghost" data-seconds="60">60 s</button><button
+                        class="btn ghost" data-seconds="90">90 s</button><button class="btn ghost"
+                        data-seconds="120">120 s</button><button class="btn ghost" id="timerStop">Stopp</button></div>
+            </div>
+            <p class="small">Vorher 4–5 Minuten aufwärmen. Passe die Schwierigkeit an, damit jede Wiederholung sauber
+                bleibt. Für Ringübungen nur sicher befestigte Ringe verwenden.</p>
+        </section>
+        <section id="protein" class="section">
+            <h2>Veganer Proteintracker</h2>
+            <div class="card hero">
+                <div class="row">
+                    <div>
+                        <div class="eyebrow">Heute</div>
+                        <div class="value"><span id="proteinTotal">0</span> <span class="small">/ <span
+                                    id="proteinGoalLabel">150</span> g</span></div>
+                    </div><span class="pill" id="proteinPercent">0 %</span>
+                </div>
+                <div class="progress">
+                    <div id="proteinProgress" style="width:0%"></div>
+                </div>
+                <p class="small" id="proteinRemaining"></p>
+            </div>
+            <div class="card">
+                <h3>Lebensmittel hinzufügen</h3>
+                <div class="stack">
+                    <div><label for="foodSelect">Lebensmittel</label><select class="input" id="foodSelect"></select>
+                    </div>
+                    <div class="grid">
+                        <div><label for="foodAmount">Menge in g / ml</label><input class="input" id="foodAmount"
+                                type="number" min="1" max="5000" value="200"></div>
+                        <div><label for="foodDate">Datum</label><input class="input" id="foodDate" type="date"></div>
+                    </div><button class="btn primary wide" id="addFood">+ Hinzufügen</button>
+                </div>
+            </div>
+            <div class="card">
+                <h3>Eigenes Lebensmittel</h3>
+                <div class="stack"><input class="input" id="customName" placeholder="Name, z. B. Lieblings-Tofu"
+                        aria-label="Name des Lebensmittels">
+                    <div class="grid">
+                        <div><label for="customP">Protein pro 100 g / ml</label><input class="input" id="customP"
+                                type="number" min="0" max="100" step="0.1" placeholder="z. B. 17"></div>
+                        <div><label for="customAmount">Menge (g / ml)</label><input class="input" id="customAmount"
+                                type="number" min="1" max="5000" value="100"></div>
+                    </div><button class="btn ghost wide" id="addCustom">+ Eigenes Produkt eintragen</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="row">
+                    <h3>Einträge am gewählten Tag</h3><span class="pill" id="foodCount">0</span>
+                </div>
+                <div id="foodList"></div>
+            </div>
+        </section>
+        <section id="progress" class="section">
+            <h2>Fortschritt</h2>
+            <div class="grid">
+                <div class="stat">
+                    <div class="small">Trainings gesamt</div><strong id="allSessions">0</strong>
+                </div>
+                <div class="stat">
+                    <div class="small">Protein Ø letzte 7 Tage</div><strong id="avgProtein">0 g</strong>
+                </div>
+            </div>
+            <div class="card spaced">
+                <h3>Protein – letzte 7 Tage</h3>
+                <div id="proteinChart" class="chart"></div>
+                <div class="small">Balken: Gramm Protein pro Tag</div>
+            </div>
+            <div class="card">
+                <h3>Letzte Trainings</h3>
+                <div id="history"></div>
+            </div>
+            <div class="card">
+                <h3>8-Wochen-Progression</h3>
+                <p class="small">Woche 1–2: Technik und Ausgangswerte · Woche 3–4: Wiederholungen steigern · Woche 5–6:
+                    Belastung erhöhen, wenn alle Sätze sauber gelingen · Woche 7: Fortschritt fortsetzen · Woche 8:
+                    Testen und bei Bedarf leichter trainieren.</p>
+                <p class="small">Wenn du das obere Ende des Wiederholungsbereichs in allen Sätzen erreichst, erhöhe
+                    Gewicht oder Übungsschwierigkeit. Notiere die Gewichte für den nächsten Vergleich.</p>
+            </div>
+        </section>
+        <section id="settings" class="section">
+            <h2>Einstellungen & Daten</h2>
+            <div class="card">
+                <h3>Dein Protein-Tagesziel</h3>
+                <div class="row"><input class="input" style="max-width:140px" id="goalInput" type="number" min="50"
+                        max="250" value="150" aria-label="Proteinziel in Gramm"><button class="btn"
+                        id="saveGoal">Speichern</button></div>
+                <p class="small">Bei 84 kg sind ca. 134–168 g pro Tag ein sinnvoller Bereich für Muskelaufbau. 150 g ist
+                    ein praktischer Richtwert.</p>
+            </div>
+            <div class="card">
+                <h3>Deine Daten gehören dir</h3>
+                <p class="small">Alle Einträge werden ausschließlich in diesem Browser auf diesem Gerät gespeichert.
+                    Keine Registrierung, keine Übertragung an einen Server. Beim Löschen von Browser-/Website-Daten
+                    können Einträge verloren gehen.</p>
+                <div class="stack"><button class="btn primary wide" id="exportData">⬇ JSON-Backup
+                        exportieren</button><label for="importFile">Backup wiederherstellen (JSON)</label><input
+                        class="input" type="file" id="importFile" accept="application/json,.json"><button
+                        class="btn danger wide" id="clearData">Alle lokalen Daten löschen</button></div>
+            </div>
+            <div class="card">
+                <h3>Android-Installation</h3>
+                <p class="small">Diese App muss über HTTPS (oder localhost) geöffnet werden. In Chrome: Menü ⋮ → „App
+                    installieren“ oder „Zum Startbildschirm hinzufügen“. Danach einmal online öffnen; anschließend sind
+                    die App-Dateien offline verfügbar.</p><button class="btn ghost wide hidden" id="installBtn">App
+                    installieren</button>
+                <p class="small" id="swStatus">Offline-Modus wird geprüft …</p>
+            </div>
+        </section>
+    </main>
+    <nav class="tabs" aria-label="Navigation"><button class="active" data-tab="home"><span>⌂</span>Start</button><button
+            data-tab="training"><span>🏋</span>Training</button><button
+            data-tab="protein"><span>🥗</span>Protein</button><button
+            data-tab="progress"><span>▥</span>Verlauf</button><button data-tab="settings"><span>⚙</span>Mehr</button>
+    </nav>
+    <script>
+        'use strict'; const KEY = 'vegan-strength-v2'; const $ = id => document.getElementById(id); const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }; const dayShift = n => { let d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }; const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); const num = v => Number.isFinite(Number(v)) ? Number(v) : 0; const fmt = n => Number(n).toLocaleString('de-DE', { maximumFractionDigits: 1 });
+        const workouts = [{ name: 'Upper A', day: 'Montag', focus: 'Rücken · Brust · Arme', ex: [['Klimmzüge', 4, '1–2', 120], ['Ring Rows', 3, '8–12', 75], ['Erhöhte Push-ups / Ring Push-ups', 3, '6–10', 90], ['Kurzhantel-Schulterdrücken', 2, '8–12', 75], ['Kurzhantel-Curls', 2, '10–15', 60]] }, { name: 'Lower A', day: 'Dienstag', focus: 'Beine · Core', ex: [['Goblet Squats', 3, '8–12', 90], ['Rumänisches Kreuzheben', 3, '8–12', 90], ['Reverse Lunges (je Bein)', 2, '8–12', 75], ['Wadenheben', 2, '12–20', 45], ['Plank (Sekunden)', 2, '30–60', 45]] }, { name: 'Upper B', day: 'Donnerstag', focus: 'Brust · Schultern · Rücken', ex: [['Push-ups', 4, '3–5', 90], ['Klimmzug-Negative', 3, '2–3', 120], ['Einarmiges Kurzhantelrudern (je Seite)', 3, '8–12', 75], ['Kurzhantel-Seitheben', 2, '12–20', 60], ['Ring-Trizeps-Extensions', 2, '8–12', 60]] }, { name: 'Lower B + Upper', day: 'Samstag', focus: 'Beine · Rücken · Brust', ex: [['Bulgarian Split Squats (je Bein)', 3, '8–12', 90], ['Einbeinige Glute Bridges (je Bein)', 2, '10–15', 60], ['Ring Rows', 3, '8–12', 75], ['Kurzhantel-Floor Press', 3, '8–12', 75], ['Dead Bug (je Seite)', 2, '8–12', 45]] }];
+        const foods = [['Naturtofu', 15], ['Räuchertofu', 18], ['Tempeh', 19], ['Seitan', 25], ['Sojaskyr', 6], ['Sojamilch', 3.3], ['Linsen, gekocht', 9], ['Kichererbsen, gekocht', 8.5], ['Haferflocken', 13], ['Erdnussmus', 26], ['Vollkornbrot', 9], ['Veganes Proteinpulver', 75]];
+        function cleanData(x) { if (!x || typeof x !== 'object' || Array.isArray(x)) throw Error('Ungültige Backup-Datei'); const entries = Array.isArray(x.entries) ? x.entries : []; const sessions = Array.isArray(x.sessions) ? x.sessions : []; if (entries.length > 30000 || sessions.length > 10000) throw Error('Backup ist zu groß'); return { goal: Math.max(50, Math.min(250, num(x.goal) || 150)), entries: entries.filter(e => e && typeof e.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.date) && typeof e.name === 'string' && e.name.length < 150 && num(e.amount) > 0 && num(e.amount) <= 5000 && num(e.protein) >= 0 && num(e.protein) <= 100).map(e => ({ id: String(e.id || crypto.randomUUID()), date: e.date, name: e.name, amount: num(e.amount), protein: num(e.protein) })), sessions: sessions.filter(s => s && typeof s.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.date) && typeof s.workout === 'string' && s.workout.length < 100 && Array.isArray(s.exercises) && s.exercises.length <= 30).map(s => ({ id: String(s.id || crypto.randomUUID()), date: s.date, workout: s.workout, exercises: s.exercises.slice(0, 30).map(e => ({ name: String(e.name || '').slice(0, 150), sets: (Array.isArray(e.sets) ? e.sets : []).slice(0, 12).map(a => ({ reps: Math.max(0, Math.min(999, num(a.reps))), kg: Math.max(0, Math.min(999, num(a.kg))), done: !!a.done })) })) })) }; }
+        let data; try { data = cleanData(JSON.parse(localStorage.getItem(KEY) || '{}')) } catch (e) { data = cleanData({}) } function persist() { try { localStorage.setItem(KEY, JSON.stringify(data)) } catch (e) { alert('Speichern fehlgeschlagen. Bitte Speicherplatz prüfen und Backup exportieren.') } } let current = 0, drafts = {}; function go(tab) { document.querySelectorAll('.section').forEach(x => x.classList.toggle('active', x.id === tab)); document.querySelectorAll('[data-tab]').forEach(x => x.classList.toggle('active', x.dataset.tab === tab)); window.scrollTo(0, 0); render() } document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => go(b.dataset.tab)); document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
+        function dayTotal(date) { return data.entries.filter(e => e.date === date).reduce((a, e) => a + e.amount * e.protein / 100, 0) } function renderHome() { const t = dayTotal(today()); $('homeProtein').textContent = `${fmt(t)} / ${data.goal} g`; $('homeProgress').style.width = `${Math.min(100, t / data.goal * 100)}%`; $('homeRemaining').textContent = t >= data.goal ? 'Tagesziel erreicht!' : `${fmt(data.goal - t)} g bis zum Tagesziel`; const monday = new Date(); const weekday = (monday.getDay() + 6) % 7; monday.setDate(monday.getDate() - weekday); monday.setHours(0, 0, 0, 0); const week = data.sessions.filter(s => new Date(s.date + 'T12:00:00') >= monday).length; $('homeSessions').textContent = `${week} / 4`; const next = workouts[data.sessions.length % 4]; $('nextTitle').textContent = next.name; $('nextSub').textContent = `${next.day} · ${next.focus} · ca. 45 Minuten`; $('startNext').onclick = () => { current = data.sessions.length % 4; $('workoutSelect').value = String(current); renderTraining(); go('training') } }
+        function initDraft() { if (!drafts[current]) { const last = data.sessions.find(s => s.workout === workouts[current].name); drafts[current] = workouts[current].ex.map((e, i) => Array.from({ length: e[1] }, (_, j) => ({ reps: last?.exercises?.[i]?.sets?.[j]?.reps || '', kg: last?.exercises?.[i]?.sets?.[j]?.kg || '', done: false }))) } } function renderTraining() { initDraft(); const w = workouts[current]; $('workoutSelect').value = String(current); $('workoutInfo').textContent = `${w.day} · ${w.focus} · 40–45 Minuten`; $('sessionStatus').textContent = `${drafts[current].flat().filter(s => s.done).length} Sätze abgehakt`; $('exerciseList').innerHTML = w.ex.map((e, i) => `<div class="exercise"><div class="row"><div><strong>${escapeHtml(e[0])}</strong><div class="small">${e[1]} × ${e[2]} · ${e[3]} s Pause</div></div></div><div class="sets">${drafts[current][i].map((s, j) => `<div class="setrow ${s.done ? 'done' : ''}"><span class="small">S${j + 1}</span><div><label>Wdh. / Sek.</label><input class="input" inputmode="numeric" type="number" min="0" max="999" data-e="${i}" data-s="${j}" data-field="reps" value="${s.reps}"></div><div><label>kg</label><input class="input" inputmode="decimal" type="number" min="0" max="999" step="0.5" data-e="${i}" data-s="${j}" data-field="kg" value="${s.kg}"></div><button class="btn ${s.done ? 'primary' : 'ghost'}" data-done="${i}:${j}" aria-label="Satz ${j + 1} abhaken">${s.done ? '✓' : '○'}</button></div>`).join('')}</div></div>`).join(''); $('exerciseList').querySelectorAll('input').forEach(el => el.onchange = () => { drafts[current][+el.dataset.e][+el.dataset.s][el.dataset.field] = el.value }); $('exerciseList').querySelectorAll('[data-done]').forEach(b => b.onclick = () => { const [i, j] = b.dataset.done.split(':').map(Number); drafts[current][i][j].done = !drafts[current][i][j].done; if (drafts[current][i][j].done) { timerSeconds = w.ex[i][3]; startTimer() } renderTraining() }) }
+        $('workoutSelect').innerHTML = workouts.map((w, i) => `<option value="${i}">${w.day} – ${w.name}</option>`).join(''); $('workoutSelect').onchange = e => { current = +e.target.value; renderTraining() }; $('resetWorkout').onclick = () => { if (confirm('Aktuelle, noch nicht gespeicherte Eingaben leeren?')) { delete drafts[current]; renderTraining() } }; $('saveWorkout').onclick = () => { initDraft(); const ex = workouts[current].ex.map((e, i) => ({ name: e[0], sets: drafts[current][i].map(s => ({ reps: num(s.reps), kg: num(s.kg), done: s.done })) })); if (!ex.some(e => e.sets.some(s => s.done))) { alert('Bitte hake mindestens einen abgeschlossenen Satz ab.'); return } data.sessions.unshift({ id: crypto.randomUUID(), date: today(), workout: workouts[current].name, exercises: ex }); persist(); delete drafts[current]; alert('Training gespeichert!'); go('progress') };
+        $('foodSelect').innerHTML = foods.map((f, i) => `<option value="${i}">${f[0]} · ${fmt(f[1])} g / 100 g</option>`).join(''); $('foodDate').value = today(); function addEntry(name, p, amount) { const date = $('foodDate').value; if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !(amount > 0 && amount <= 5000) || !(p >= 0 && p <= 100)) { alert('Bitte gültige Werte eingeben.'); return } data.entries.push({ id: crypto.randomUUID(), date, name, protein: p, amount }); persist(); renderProtein(); renderHome() }; $('addFood').onclick = () => { const f = foods[+$('foodSelect').value]; addEntry(f[0], f[1], num($('foodAmount').value)) }; $('addCustom').onclick = () => { const name = $('customName').value.trim(); const p = Number($('customP').value); if (!name || name.length > 149 || $('customP').value === '' || !Number.isFinite(p)) { alert('Bitte Namen und Proteingehalt eingeben.'); return } addEntry(name, p, num($('customAmount').value)); $('customName').value = '' }; $('foodDate').onchange = renderProtein;
+        function renderProtein() { const date = $('foodDate').value; const list = data.entries.filter(e => e.date === date); const total = dayTotal(date); $('proteinTotal').textContent = fmt(total); $('proteinGoalLabel').textContent = data.goal; $('proteinPercent').textContent = `${Math.round(total / data.goal * 100)} %`; $('proteinProgress').style.width = `${Math.min(100, total / data.goal * 100)}%`; $('proteinRemaining').textContent = total >= data.goal ? 'Ziel erreicht!' : `${fmt(data.goal - total)} g fehlen noch`; $('foodCount').textContent = list.length; $('foodList').innerHTML = list.length ? list.map(e => `<div class="foodrow"><div class="grow"><strong>${escapeHtml(e.name)}</strong><div class="small">${fmt(e.amount)} g/ml · ${fmt(e.protein)} g / 100</div></div><strong>${fmt(e.amount * e.protein / 100)} g</strong><button class="btn ghost" data-remove="${escapeHtml(e.id)}" aria-label="Eintrag löschen">✕</button></div>`).join('') : '<p class="muted small">Noch keine Einträge an diesem Tag.</p>'; $('foodList').querySelectorAll('[data-remove]').forEach(b => b.onclick = () => { data.entries = data.entries.filter(e => e.id !== b.dataset.remove); persist(); render() }) }
+        function renderProgress() { const recent = Array.from({ length: 7 }, (_, i) => dayShift(i - 6)); const vals = recent.map(dayTotal); const max = Math.max(data.goal, ...vals, 1); $('proteinChart').innerHTML = recent.map((d, i) => `<div style="flex:1;min-width:0;text-align:center;align-self:stretch;display:flex;flex-direction:column;justify-content:end"><div class="small" style="font-size:10px">${Math.round(vals[i])}</div><div class="bar" title="${d}: ${fmt(vals[i])} g" style="height:${Math.max(2, vals[i] / max * 80)}px"></div><div class="small" style="font-size:10px">${d.slice(8)}</div></div>`).join(''); $('avgProtein').textContent = `${fmt(vals.reduce((a, b) => a + b, 0) / 7)} g`; $('allSessions').textContent = data.sessions.length; $('history').innerHTML = data.sessions.length ? data.sessions.slice(0, 20).map(s => `<div class="foodrow"><div class="grow"><strong>${escapeHtml(s.workout)}</strong><div class="small">${escapeHtml(s.date)} · ${s.exercises.reduce((a, e) => a + e.sets.filter(x => x.done).length, 0)} Sätze</div></div><button class="btn ghost" data-detail="${escapeHtml(s.id)}">Details</button></div>`).join('') : '<p class="small muted">Noch kein Workout gespeichert.</p>'; $('history').querySelectorAll('[data-detail]').forEach(b => b.onclick = () => { const s = data.sessions.find(s => s.id === b.dataset.detail); if (s) alert(`${s.workout} · ${s.date}\n\n` + s.exercises.map(e => e.name + ': ' + e.sets.filter(a => a.done).map(a => a.reps + ' Wdh., ' + a.kg + ' kg').join(' / ')).join('\n')) }) }
+        function render() { renderHome(); renderProtein(); renderProgress(); renderTraining(); $('goalInput').value = data.goal } let timerSeconds = 90, timerInterval = null; function timerText() { const m = Math.floor(timerSeconds / 60), s = timerSeconds % 60; $('timerDisplay').textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` }; function stopTimer() { clearInterval(timerInterval); timerInterval = null; $('timerStart').textContent = '▶ Start' } function startTimer() { stopTimer(); timerText(); const end = Date.now() + timerSeconds * 1000; timerInterval = setInterval(() => { timerSeconds = Math.max(0, Math.ceil((end - Date.now()) / 1000)); timerText(); if (timerSeconds <= 0) { stopTimer(); if (navigator.vibrate) navigator.vibrate([150, 100, 150]) } }, 250); $('timerStart').textContent = '↻ Neustart' } $('timerStart').onclick = () => { if (timerSeconds <= 0) timerSeconds = 90; startTimer() }; $('timerStop').onclick = stopTimer; document.querySelectorAll('[data-seconds]').forEach(b => b.onclick = () => { stopTimer(); timerSeconds = +b.dataset.seconds; timerText() }); $('saveGoal').onclick = () => { const g = num($('goalInput').value); if (g < 50 || g > 250) return alert('Bitte Ziel zwischen 50 und 250 g eingeben.'); data.goal = g; persist(); render() };
+        $('exportData').onclick = () => { const blob = new Blob([JSON.stringify({ app: 'Vegan Strength', version: 2, exportedAt: new Date().toISOString(), ...data }, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); const url = URL.createObjectURL(blob); a.href = url; a.download = `vegan-strength-backup-${today()}.json`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 3000) }; $('importFile').onchange = async e => { const f = e.target.files[0]; if (!f) return; if (f.size > 15 * 1024 * 1024) return alert('Datei zu groß.'); try { const incoming = cleanData(JSON.parse(await f.text())); if (confirm('Vorhandene Daten durch dieses Backup ersetzen?')) { data = incoming; persist(); drafts = {}; render(); alert('Backup importiert.') } } catch (err) { alert('Import fehlgeschlagen: ' + err.message) } e.target.value = '' }; $('clearData').onclick = () => { if (confirm('Wirklich ALLE lokalen Einträge löschen? Bitte vorher ein Backup erstellen.')) { data = cleanData({}); drafts = {}; persist(); render() } };
+        let installPrompt = null; window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; $('installBtn').classList.remove('hidden') }); $('installBtn').onclick = async () => { if (!installPrompt) return; installPrompt.prompt(); await installPrompt.userChoice; installPrompt = null; $('installBtn').classList.add('hidden') }; function updateOnline() { $('offline').textContent = navigator.onLine ? '● Lokal' : '● Offline' } window.addEventListener('online', updateOnline); window.addEventListener('offline', updateOnline); updateOnline(); if ('serviceWorker' in navigator && location.protocol !== 'file:') { navigator.serviceWorker.register('./sw.js').then(() => $('swStatus').textContent = 'Offline-Unterstützung aktiviert (nach erstem vollständigen Laden).').catch(() => $('swStatus').textContent = 'Offline-Unterstützung konnte nicht aktiviert werden.') } else $('swStatus').textContent = 'Für Installation und Offline-Modus bitte per HTTPS öffnen.'; render();
+    </script>
+</body>
+
+</html>

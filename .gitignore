@@ -1,0 +1,20 @@
+# Lokale Werkzeuge und Zugangsdaten
+/.agents/
+/.codex/
+/.aws/
+.env
+.env.*
+!.env.example
+
+# Persönliche Datenexporte
+vegan-strength-backup-*.json
+
+# Abhängigkeiten und generierte Dateien
+/node_modules/
+/dist/
+/coverage/
+*.log
+
+# Betriebssystemdateien
+.DS_Store
+Thumbs.db
