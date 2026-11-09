@@ -8,14 +8,21 @@ export function createSettings({ $, getData, setData, repository, persist, runAc
     async function renderStatus() {
         const revision = ++statusRevision;
         $('storageNotice').classList.toggle('hidden', !repository.problem);
-        $('storageNoticeTitle').textContent = repository.loaded ? 'Änderung nicht gespeichert' : 'Deine Daten konnten nicht geladen werden';
+        const clearing = repository.problem?.code === 'CLEAR_PENDING';
+        $('storageNoticeTitle').textContent = clearing ? 'Löschen noch nicht abgeschlossen' : repository.loaded ? 'Änderung nicht gespeichert' : 'Deine Daten konnten nicht geladen werden';
         $('storageMessage').textContent = repository.problem
-            ? (repository.loaded ? 'Dein bisheriger Datenstand und deine Eingaben bleiben erhalten. ' : 'Die angezeigten Werte sind kein geladener Datenstand. Deine Originaldaten werden nicht automatisch überschrieben. ') + repository.problem.message
+            ? (clearing ? '' : repository.loaded ? 'Dein bisheriger Datenstand und deine Eingaben bleiben erhalten. ' : 'Die angezeigten Werte sind kein geladener Datenstand. Deine Originaldaten werden nicht automatisch überschrieben. ') + repository.problem.message
             : '';
         $('exportOriginal').classList.toggle('hidden', !repository.problem || repository.raw === null);
         let previous = null;
         try { previous = await repository.previous(); } catch { /* Storage denial is already shown by the main operation. */ }
         if (revision === statusRevision) $('exportPrevious').classList.toggle('hidden', previous === null);
+        let migration = null;
+        try { migration = await repository.migration(); } catch { /* Preserve the main error. */ }
+        if (revision === statusRevision) $('exportMigration').classList.toggle('hidden', migration === null);
+        let other = null;
+        try { other = await repository.conflict(); } catch { /* Preserve the main error. */ }
+        if (revision === statusRevision) $('exportOther').classList.toggle('hidden', other === null);
     }
     $('saveGoal').onclick = () => {
         const goal = Number($('goalInput').value);
@@ -30,7 +37,11 @@ export function createSettings({ $, getData, setData, repository, persist, runAc
             environment.alert('Die Daten sind nicht geladen. Bitte lade stattdessen die Originaldaten herunter.');
             return;
         }
-        download(serializeBackup(getData()), `vegan-strength-backup-${today()}.json`);
+        download(serializeBackup(getData(), undefined, training.snapshot()), `vegan-strength-backup-${today()}.json`);
+    });
+    $('exportLegacyData').onclick = () => runAction(() => {
+        if (!repository.loaded) return environment.alert('Die Daten sind nicht geladen. Bitte zuerst Originaldaten sichern.');
+        download(serializeBackup(getData()), `vegan-strength-backup-v2-${today()}.json`);
     });
     $('exportOriginal').onclick = () => {
         if (repository.raw !== null) download(repository.raw, `vegan-strength-backup-original-${today()}.json`);
@@ -42,7 +53,20 @@ export function createSettings({ $, getData, setData, repository, persist, runAc
             download(previous, `vegan-strength-backup-vor-import-${today()}.json`);
         } catch { environment.alert('Die Sicherung konnte nicht gelesen werden. Bitte den Speicherzugriff prüfen.'); }
     });
+    $('exportMigration').onclick = () => runAction(async () => {
+        try {
+            const original = await repository.migration();
+            if (original !== null) download(original, `vegan-strength-backup-ursprung-${today()}.json`);
+        } catch { environment.alert('Der ursprüngliche Datenstand konnte nicht gelesen werden.'); }
+    });
+    $('exportOther').onclick = () => runAction(async () => {
+        try {
+            const other = await repository.conflict();
+            if (other !== null) download(other, `vegan-strength-backup-anderes-fenster-${today()}.json`);
+        } catch { environment.alert('Der Datenstand aus dem anderen Fenster konnte nicht gelesen werden.'); }
+    });
     $('retryStorage').onclick = () => runAction(async () => {
+        training.pauseAutosave();
         const loaded = await repository.load();
         if (loaded) setData(loaded);
         await renderStatus();
@@ -53,15 +77,14 @@ export function createSettings({ $, getData, setData, repository, persist, runAc
         if (!file) return Promise.resolve();
         return runAction(async () => {
             try {
-                const incoming = await readBackup(file), data = getData();
+                const { data: incoming, training: incomingTraining } = await readBackup(file), data = getData();
                 const existing = repository.loaded
                     ? `${data.entries.length} Lebensmitteleinträge und ${data.sessions.length} Trainings`
                     : 'der bisherige, nicht geladene Originalstand';
                 const message = `Backup wiederherstellen?\n\n${incoming.entries.length} Lebensmitteleinträge\n${incoming.sessions.length} Trainings\nProteinziel: ${fmt(incoming.goal)} g\n\nErsetzt werden: ${existing}.\nVor dem Ersetzen wird der bisherige Originalstand auf diesem Gerät gesichert. Du kannst ihn anschließend unter „Mehr“ herunterladen.`;
                 if (!environment.confirm(message)) return;
-                if (!await persist(() => incoming, { replacement: true })) return;
-                training.reset();
-                timer.stop();
+                if (!await persist(() => incoming, { replacement: true, training: incomingTraining, previousTraining: training.snapshot() })) return;
+                training.restore(incomingTraining);
                 refresh();
                 environment.alert('Backup importiert. Eine vorhandene Sicherung vor dem Import kannst du unter „Mehr“ herunterladen.');
             } catch (error) {
@@ -73,7 +96,7 @@ export function createSettings({ $, getData, setData, repository, persist, runAc
         if (!environment.confirm('Wirklich ALLE lokalen Einträge und die Sicherung vor dem letzten Import löschen? Bitte vorher ein Backup erstellen.')) return;
         if (!await persist(emptyData, { replacement: false, allowReset: true })) return;
         training.reset();
-        timer.stop();
+        timer.stop(false);
         try { await repository.removePrevious(); }
         catch { environment.alert('Die Einträge wurden geleert. Die Sicherung vor dem Import konnte nicht gelöscht werden. Bitte erneut löschen.'); }
         await renderStatus();

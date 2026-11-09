@@ -1,5 +1,5 @@
 import { emptyData } from './domain/validation.js';
-import { createLocalStorageStore } from './storage/local-storage.js';
+import { createIndexedDBStore } from './storage/indexed-db.js';
 import { createRepository } from './storage/repository.js';
 import { createTimer } from './services/timer.js';
 import { createDownloader } from './services/backup.js';
@@ -11,11 +11,16 @@ import { createProtein } from './features/protein.js';
 import { createProgress } from './features/progress.js';
 import { createSettings } from './features/settings.js';
 
-export async function createApp({ environment = globalThis, repository = createRepository(createLocalStorageStore(() => environment.localStorage)) } = {}) {
+export async function createApp({ environment = globalThis, repository } = {}) {
     const { document, window } = environment;
+    let settings;
+    repository ??= createRepository(createIndexedDBStore({
+        indexedDB: environment.indexedDB,
+        getStorage: () => environment.localStorage,
+        onVersionChange: () => settings?.renderStatus()
+    }));
     let data = await repository.load() || emptyData();
     let pending = Promise.resolve();
-    let settings;
     // Serialize whole user actions, including file reads and confirmations.
     // Each update derives its candidate from the latest committed snapshot.
     function runAction(action) {
@@ -43,6 +48,7 @@ export async function createApp({ environment = globalThis, repository = createR
         getData: () => data,
         setData: loaded => { data = loaded; },
         persist, runAction, repository, environment,
+        storageStatus: () => settings.renderStatus(),
         go: navigation.go,
         refresh: navigation.refresh,
         download: createDownloader(environment)
@@ -54,6 +60,14 @@ export async function createApp({ environment = globalThis, repository = createR
         clearInterval: id => environment.clearInterval(id)
     });
     const training = createTraining(context, timer);
+    const restored = await repository.loadTraining();
+    training.restore(restored);
+    window.addEventListener('pagehide', () => { void training.flush(); });
+    window.addEventListener('focus', timer.refresh);
+    document.addEventListener?.('visibilitychange', () => {
+        timer.refresh();
+        if (document.visibilityState === 'hidden') void training.flush();
+    });
     views.training = training;
     views.home = createHome(context, training);
     views.protein = createProtein(context);
@@ -61,10 +75,11 @@ export async function createApp({ environment = globalThis, repository = createR
     views.settings = settings = createSettings(context, training, timer);
     initializePwa(environment);
     await settings.renderStatus();
-    navigation.go(repository.loaded ? 'home' : 'settings');
+    navigation.go(repository.loaded ? (Object.keys(restored.drafts).length ? 'training' : 'home') : 'settings');
     return {
         navigate: navigation.go,
         getData: () => structuredClone(data),
-        whenIdle: () => pending
+        async whenIdle() { await training.flush(); await pending; },
+        close() { repository.close(); }
     };
 }

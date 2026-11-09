@@ -68,6 +68,8 @@
         </section>
         <section id="training" class="section">
             <h2>Training</h2>
+            <p class="small" id="draftStatus" role="status" aria-live="polite">Trainingsentwurf wird geladen …</p>
+            <button class="btn ghost hidden" id="retryDraft">Entwurf erneut speichern</button>
             <div class="card"><label for="workoutSelect">Workout wählen</label><select class="input"
                     id="workoutSelect"></select>
                 <p class="small" id="workoutInfo"></p>
@@ -185,12 +187,16 @@
                     Keine Registrierung, keine Übertragung an einen Server. Beim Löschen von Browser-/Website-Daten
                     können Einträge verloren gehen.</p>
                 <div class="stack"><button class="btn primary wide" id="exportData">⬇ JSON-Backup
-                        exportieren</button><label for="importFile">Backup wiederherstellen (JSON)</label><input
+                        exportieren</button><button class="btn ghost wide" id="exportLegacyData">v2-Backup ohne Trainingsentwürfe</button><label for="importFile">Backup wiederherstellen (JSON)</label><input
                         class="input" type="file" id="importFile" accept="application/json,.json"><button
                         class="btn ghost wide hidden" id="exportPrevious">Sicherung vor dem letzten Import herunterladen</button><button
+                        class="btn ghost wide hidden" id="exportMigration">Ursprünglichen Datenstand herunterladen</button><button
+                        class="btn ghost wide hidden" id="exportOther">Datenstand aus anderem Fenster herunterladen</button><button
                         class="btn danger wide" id="clearData">Alle lokalen Daten löschen</button></div>
                 <p class="small">Beim Import werden deine bisherigen Daten nach Bestätigung ersetzt. Vorher wird der
                     Originalstand auf diesem Gerät gesichert. Du kannst diese Sicherung anschließend herunterladen.</p>
+                <p class="small">Vollständige Backups enthalten auch laufende Trainingsentwürfe und den Pausentimer.
+                    Ältere v2-Backups bleiben importierbar. Deine Daten werden weiterhin nur auf diesem Gerät gespeichert.</p>
             </div>
             <div class="card">
                 <h3>Android-Installation</h3>

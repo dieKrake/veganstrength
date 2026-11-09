@@ -15,8 +15,12 @@ test('existing v2 state loads without changing IDs, order, decimals, seconds or 
     await ui.element('exportData').click();
     const exported = JSON.parse(await ui.downloads[0].blob.text());
     assert.equal(exported.app, fixture.app);
-    assert.equal(exported.version, 2);
+    assert.equal(exported.version, 3);
     assert.deepEqual(state(exported), original);
+    await ui.element('exportLegacyData').click();
+    const legacyExport = JSON.parse(await ui.downloads[1].blob.text());
+    assert.equal(legacyExport.version, 2);
+    assert.deepEqual(state(legacyExport), original);
 });
 
 test('first launch does not create or overwrite storage until a successful action', async () => {
@@ -70,7 +74,7 @@ const invalidBackups = [
     ['unrelated JSON', { unrelated: true }],
     ['incomplete object', { goal: 150 }],
     ['foreign app', { ...fixture, app: 'Other App' }],
-    ['future version', { ...fixture, version: 3 }],
+    ['future version', { ...fixture, version: 4 }],
     ['missing app marker', { ...fixture, app: undefined }],
     ['unknown field', { ...fixture, customFoods: [] }],
     ['invalid goal', { ...fixture, goal: 251 }],
@@ -258,7 +262,7 @@ test('service worker activation preserves caches belonging to other applications
         URL,
         self: { location: { href: 'https://example.test/app/sw.js' }, addEventListener: (type, handler) => handlers.set(type, handler), clients: { claim: async () => {} } },
         caches: {
-            keys: async () => ['other-app-v1', 'vegan-strength-v2.0.0', 'vegan-strength-v2.1.0'],
+            keys: async () => ['other-app-v1', 'vegan-strength-v2.0.0', 'vegan-strength-v2.2.1'],
             delete: async key => deleted.push(key)
         }
     });

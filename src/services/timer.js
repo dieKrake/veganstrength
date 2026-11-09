@@ -1,36 +1,49 @@
 export function createTimer({ document, navigator, setInterval, clearInterval, now = Date.now }) {
     const display = document.getElementById('timerDisplay');
     const startButton = document.getElementById('timerStart');
-    let seconds = 90, interval = null;
-
+    let seconds = 90, endAt = null, interval = null, changed = () => {};
+    const remaining = () => endAt === null ? seconds : Math.max(0, Math.ceil((endAt - now()) / 1000));
     function render() {
-        const minutes = Math.floor(seconds / 60), remainder = seconds % 60;
-        display.textContent = `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+        const value = remaining();
+        display.textContent = `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
+        startButton.textContent = endAt === null ? '▶ Start' : '↻ Neustart';
     }
-    function stop() {
+    function stop(notify = true) {
+        seconds = remaining();
+        endAt = null;
         clearInterval(interval);
         interval = null;
-        startButton.textContent = '▶ Start';
-    }
-    function start(duration = seconds) {
-        stop();
-        seconds = duration;
         render();
-        const end = now() + seconds * 1000;
-        interval = setInterval(() => {
-            seconds = Math.max(0, Math.ceil((end - now()) / 1000));
-            render();
-            if (seconds <= 0) {
-                stop();
-                navigator.vibrate?.([150, 100, 150]);
-            }
-        }, 250);
-        startButton.textContent = '↻ Neustart';
+        if (notify) changed();
     }
-    startButton.onclick = () => start(seconds <= 0 ? 90 : seconds);
-    document.getElementById('timerStop').onclick = stop;
+    function refresh() {
+        render();
+        if (endAt !== null && remaining() <= 0) {
+            stop();
+            navigator.vibrate?.([150, 100, 150]);
+        }
+    }
+    function start(duration = remaining()) {
+        stop(false);
+        seconds = duration;
+        endAt = now() + seconds * 1000;
+        interval = setInterval(refresh, 250);
+        render();
+        changed();
+    }
+    function restore(value) {
+        stop(false);
+        seconds = value.seconds;
+        if (value.endAt !== null && value.endAt > now()) {
+            endAt = value.endAt;
+            interval = setInterval(refresh, 250);
+        } else if (value.endAt !== null) seconds = 0;
+        render();
+    }
+    startButton.onclick = () => start(remaining() <= 0 ? 90 : remaining());
+    document.getElementById('timerStop').onclick = () => stop();
     document.querySelectorAll('[data-seconds]').forEach(button => {
-        button.onclick = () => { stop(); seconds = +button.dataset.seconds; render(); };
+        button.onclick = () => { stop(false); seconds = +button.dataset.seconds; render(); changed(); };
     });
-    return { start, stop };
+    return { start, stop, restore, refresh, snapshot: () => ({ seconds: remaining(), endAt }), onChange(callback) { changed = callback; } };
 }

@@ -87,14 +87,14 @@ class Element {
     remove() {}
 }
 
-async function app(storage = new Storage(), { confirm = true, beforeWrite } = {}) {
+async function app(storage = new Storage(), { confirm = true, beforeWrite, indexedDB, useDefaultStorage = false } = {}) {
     const ids = new Map([...html.matchAll(/id="([^"]+)"/g)].map(match => [match[1], new Element()]));
     for (const match of html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g)) {
         ids.get(match[1]).classList = classes(match[0].match(/class="([^"]*)"/)?.[1]);
         ids.get(match[1]).value = match[0].match(/\bvalue="([^"]*)"/)?.[1] || '';
     }
     const selectors = new Map();
-    const alerts = [], confirmations = [], downloads = [], intervals = new Map();
+    const alerts = [], confirmations = [], downloads = [], intervals = new Map(), timeouts = new Map();
     const environment = {
         document: {
             getElementById: id => {
@@ -109,6 +109,7 @@ async function app(storage = new Storage(), { confirm = true, beforeWrite } = {}
             body: { appendChild(link) { downloads[downloads.length - 1].filename = link.download; } }
         },
         localStorage: storage,
+        indexedDB,
         navigator: { onLine: true, vibrate() {} },
         location: { protocol: 'file:' },
         window: { addEventListener() {}, scrollTo() {} },
@@ -117,7 +118,8 @@ async function app(storage = new Storage(), { confirm = true, beforeWrite } = {}
         confirm: message => { confirmations.push(message); return confirm; },
         setInterval: callback => { const id = Symbol(); intervals.set(id, callback); return id; },
         clearInterval: id => intervals.delete(id),
-        setTimeout() {},
+        setTimeout(callback, delay) { const id = Symbol(); timeouts.set(id, { callback, delay }); return id; },
+        clearTimeout: id => timeouts.delete(id),
         Blob,
         URL: { createObjectURL(blob) { downloads.push({ blob }); return 'blob:test'; }, revokeObjectURL() {} }
     };
@@ -125,7 +127,7 @@ async function app(storage = new Storage(), { confirm = true, beforeWrite } = {}
     const { createRepository } = await import('../src/storage/repository.js');
     const { createLocalStorageStore } = await import('../src/storage/local-storage.js');
     const { dayTotal } = await import('../src/domain/protein.js');
-    const repository = createRepository(createLocalStorageStore(() => storage));
+    const repository = indexedDB || useDefaultStorage ? undefined : createRepository(createLocalStorageStore(() => storage));
     if (beforeWrite) {
         const write = repository.write;
         repository.write = async (...args) => { await beforeWrite(); return write(...args); };
@@ -136,6 +138,7 @@ async function app(storage = new Storage(), { confirm = true, beforeWrite } = {}
         element: id => ids.get(id),
         navigate: application.navigate,
         idle: application.whenIdle,
+        close: application.close,
         total: date => dayTotal(application.getData(), date),
         data: application.getData,
         draft() {
