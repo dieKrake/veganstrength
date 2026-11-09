@@ -1,6 +1,6 @@
 # Vegan Strength – Bestandsanalyse und Entwicklungsplan
 
-Stand: 9. November 2026. Umfang dieser Arbeit: vorhandenen Code analysieren und die Weiterentwicklung planen. Anwendungscode und Browserdaten wurden nicht verändert.
+Bestandsaufnahme: 9. November 2026, vor Beginn der Umsetzung. Die Abschnitte 1–8 dokumentieren diesen Ausgangsstand; der aktuelle Umsetzungsstand folgt in Abschnitt 9.
 
 ## 1. Projektstruktur und Ausgangslage
 
@@ -224,3 +224,19 @@ Die bestehende Bereinigungsfunktion wurde isoliert mit synthetischen Daten ausge
 Es wurden keine persönlichen Browserdaten gelesen oder migriert. Installation, Bedienung auf Android, Offline-Verhalten und Update-Wechsel wurden noch nicht praktisch getestet. Diese Prüfungen sind Teil der geplanten Abnahme, keine bereits bestätigten Eigenschaften.
 
 **Erster Umsetzungsschritt:** Etappe 1 mit unverändertem v2-Datenformat und unverändertem Trainingsplan. Erst nach bestandener Absicherung folgt die Modularisierung und anschließend die IndexedDB-Migration.
+
+## 9. Umsetzungsstand
+
+### Etappe 1 – umgesetzt am 9. November 2026
+
+- Der Ausgangscode ist im Git-Commit `424b8fc` gesichert.
+- Laden und Import prüfen das vollständige v2-Format, ohne Werte zu verändern oder Einträge zu entfernen. Unbekannte Felder und Versionen werden abgelehnt, Originaldaten bleiben erhalten.
+- Ladefehler werden sichtbar gemeldet. Der gelesene Originalstand lässt sich unverändert herunterladen; automatische Schreibvorgänge auf einen leeren Ersatzbestand sind gesperrt.
+- Alle Änderungen ersetzen den aktiven Datenstand erst nach erfolgreichem Speichern. Workout-Abschluss, Lebensmitteleinträge, Löschen und Zieländerungen behandeln Fehler; Entwürfe bleiben bei fehlgeschlagenen Schreibvorgängen erhalten.
+- Der bestätigte Import zeigt vorher eine Zusammenfassung und sichert den bisherigen Rohstand unter `vegan-strength-v2-before-import`. Diese Sicherung ist nach Neustart herunterladbar. Misslingt ihre Erstellung, wird der Import abgebrochen.
+- Änderungen eines anderen Fensters seit dem letzten Laden werden vor einem Schreibvorgang erkannt. Dies verhindert veraltete Schreibvorgänge in den getesteten Abläufen; eine tabübergreifende Transaktionsgarantie erfordert weiterhin die spätere IndexedDB-Architektur.
+- Der Service-Worker-Cache wurde auf `vegan-strength-v2.0.1` angehoben; die Bereinigung betrifft nur Cache-Namen dieser App. Ein abgestimmter Update-Dialog folgt weiterhin in einer späteren Etappe.
+- 40 automatisierte Regressionstests prüfen unter anderem v2-Export/Import, Reihenfolge und Dezimalwerte, Kalenderdaten, beschädigte Unterobjekte, unbekannte Felder, Speicherfehler, Importabbruch, Wiederherstellung und Cache-Isolation. Ausführung siehe README.txt.
+- Im lokalen Browser wurden Lebensmittel-Erfassung, Erhalt nach Neuladen, v2-Importvorschau, Sicherungsschaltfläche, importierte Trainingshistorie und das Layout bei 390 × 844 Pixeln geprüft. Es wurden ausschließlich synthetische Daten auf einer lokalen Testadresse verwendet. Kein Ersatz für die spätere Android-Geräte- und Offline-Abnahme.
+
+Speicherformat, Schlüssel, Proteinberechnung und bestehender Trainingsplan sind unverändert. Nächste Etappe: Modularisierung mit v2 als unverändertem Datenvertrag.

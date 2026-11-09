@@ -1,0 +1,27 @@
+{
+  "app": "Vegan Strength",
+  "version": 2,
+  "exportedAt": "2026-11-09T12:00:00.000Z",
+  "goal": 150,
+  "entries": [
+    {"id": "food-older", "date": "2024-02-29", "name": "Sojamilch", "amount": 250.5, "protein": 3.3},
+    {"id": "food-newer", "date": "2026-11-09", "name": "Eigener Tofu", "amount": 200, "protein": 17.5}
+  ],
+  "sessions": [
+    {
+      "id": "session-newer",
+      "date": "2026-11-09",
+      "workout": "Upper A",
+      "exercises": [
+        {"name": "Klimmzüge", "sets": [{"reps": 2, "kg": 0, "done": true}, {"reps": 0, "kg": 0, "done": false}]},
+        {"name": "Ring Rows", "sets": [{"reps": 10, "kg": 2.5, "done": true}]}
+      ]
+    },
+    {
+      "id": "session-older",
+      "date": "2024-02-29",
+      "workout": "Lower A",
+      "exercises": [{"name": "Plank (Sekunden)", "sets": [{"reps": 45, "kg": 0, "done": true}]}]
+    }
+  ]
+}

@@ -386,6 +386,15 @@
                 <h1>🌱 Vegan Strength</h1>
             </div><span id="offline" class="pill" aria-live="polite">Lokal</span>
         </header>
+        <aside id="storageNotice" class="card hidden" role="alert" aria-labelledby="storageNoticeTitle">
+            <h2 id="storageNoticeTitle">Deine Daten konnten nicht geladen werden</h2>
+            <p id="storageMessage"></p>
+            <div class="stack">
+                <button class="btn primary hidden" id="exportOriginal">Originaldaten herunterladen</button>
+                <button class="btn ghost" id="retryStorage">Gespeicherte Daten erneut laden</button>
+                <button class="btn ghost" data-go="settings">Backup wiederherstellen →</button>
+            </div>
+        </aside>
         <section id="home" class="section active">
             <div class="card hero">
                 <div class="eyebrow">Dein nächstes Workout</div>
@@ -544,7 +553,10 @@
                 <div class="stack"><button class="btn primary wide" id="exportData">⬇ JSON-Backup
                         exportieren</button><label for="importFile">Backup wiederherstellen (JSON)</label><input
                         class="input" type="file" id="importFile" accept="application/json,.json"><button
+                        class="btn ghost wide hidden" id="exportPrevious">Sicherung vor dem letzten Import herunterladen</button><button
                         class="btn danger wide" id="clearData">Alle lokalen Daten löschen</button></div>
+                <p class="small">Beim Import werden deine bisherigen Daten nach Bestätigung ersetzt. Vorher wird der
+                    Originalstand auf diesem Gerät gesichert. Du kannst diese Sicherung anschließend herunterladen.</p>
             </div>
             <div class="card">
                 <h3>Android-Installation</h3>
@@ -565,17 +577,288 @@
         'use strict'; const KEY = 'vegan-strength-v2'; const $ = id => document.getElementById(id); const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }; const dayShift = n => { let d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }; const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); const num = v => Number.isFinite(Number(v)) ? Number(v) : 0; const fmt = n => Number(n).toLocaleString('de-DE', { maximumFractionDigits: 1 });
         const workouts = [{ name: 'Upper A', day: 'Montag', focus: 'Rücken · Brust · Arme', ex: [['Klimmzüge', 4, '1–2', 120], ['Ring Rows', 3, '8–12', 75], ['Erhöhte Push-ups / Ring Push-ups', 3, '6–10', 90], ['Kurzhantel-Schulterdrücken', 2, '8–12', 75], ['Kurzhantel-Curls', 2, '10–15', 60]] }, { name: 'Lower A', day: 'Dienstag', focus: 'Beine · Core', ex: [['Goblet Squats', 3, '8–12', 90], ['Rumänisches Kreuzheben', 3, '8–12', 90], ['Reverse Lunges (je Bein)', 2, '8–12', 75], ['Wadenheben', 2, '12–20', 45], ['Plank (Sekunden)', 2, '30–60', 45]] }, { name: 'Upper B', day: 'Donnerstag', focus: 'Brust · Schultern · Rücken', ex: [['Push-ups', 4, '3–5', 90], ['Klimmzug-Negative', 3, '2–3', 120], ['Einarmiges Kurzhantelrudern (je Seite)', 3, '8–12', 75], ['Kurzhantel-Seitheben', 2, '12–20', 60], ['Ring-Trizeps-Extensions', 2, '8–12', 60]] }, { name: 'Lower B + Upper', day: 'Samstag', focus: 'Beine · Rücken · Brust', ex: [['Bulgarian Split Squats (je Bein)', 3, '8–12', 90], ['Einbeinige Glute Bridges (je Bein)', 2, '10–15', 60], ['Ring Rows', 3, '8–12', 75], ['Kurzhantel-Floor Press', 3, '8–12', 75], ['Dead Bug (je Seite)', 2, '8–12', 45]] }];
         const foods = [['Naturtofu', 15], ['Räuchertofu', 18], ['Tempeh', 19], ['Seitan', 25], ['Sojaskyr', 6], ['Sojamilch', 3.3], ['Linsen, gekocht', 9], ['Kichererbsen, gekocht', 8.5], ['Haferflocken', 13], ['Erdnussmus', 26], ['Vollkornbrot', 9], ['Veganes Proteinpulver', 75]];
-        function cleanData(x) { if (!x || typeof x !== 'object' || Array.isArray(x)) throw Error('Ungültige Backup-Datei'); const entries = Array.isArray(x.entries) ? x.entries : []; const sessions = Array.isArray(x.sessions) ? x.sessions : []; if (entries.length > 30000 || sessions.length > 10000) throw Error('Backup ist zu groß'); return { goal: Math.max(50, Math.min(250, num(x.goal) || 150)), entries: entries.filter(e => e && typeof e.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.date) && typeof e.name === 'string' && e.name.length < 150 && num(e.amount) > 0 && num(e.amount) <= 5000 && num(e.protein) >= 0 && num(e.protein) <= 100).map(e => ({ id: String(e.id || crypto.randomUUID()), date: e.date, name: e.name, amount: num(e.amount), protein: num(e.protein) })), sessions: sessions.filter(s => s && typeof s.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.date) && typeof s.workout === 'string' && s.workout.length < 100 && Array.isArray(s.exercises) && s.exercises.length <= 30).map(s => ({ id: String(s.id || crypto.randomUUID()), date: s.date, workout: s.workout, exercises: s.exercises.slice(0, 30).map(e => ({ name: String(e.name || '').slice(0, 150), sets: (Array.isArray(e.sets) ? e.sets : []).slice(0, 12).map(a => ({ reps: Math.max(0, Math.min(999, num(a.reps))), kg: Math.max(0, Math.min(999, num(a.kg))), done: !!a.done })) })) })) }; }
-        let data; try { data = cleanData(JSON.parse(localStorage.getItem(KEY) || '{}')) } catch (e) { data = cleanData({}) } function persist() { try { localStorage.setItem(KEY, JSON.stringify(data)) } catch (e) { alert('Speichern fehlgeschlagen. Bitte Speicherplatz prüfen und Backup exportieren.') } } let current = 0, drafts = {}; function go(tab) { document.querySelectorAll('.section').forEach(x => x.classList.toggle('active', x.id === tab)); document.querySelectorAll('[data-tab]').forEach(x => x.classList.toggle('active', x.dataset.tab === tab)); window.scrollTo(0, 0); render() } document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => go(b.dataset.tab)); document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
+        const RECOVERY_KEY = KEY + '-before-import';
+        const emptyData = () => ({ goal: 150, entries: [], sessions: [] });
+
+        function isCalendarDate(value) {
+            if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+            const [year, month, day] = value.split('-').map(Number);
+            const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+            const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+            return year >= 1 && month >= 1 && month <= 12 && day >= 1 && day <= days[month - 1];
+        }
+
+        // Validate without filtering, truncating, coercing or inventing IDs.
+        // Unknown fields must not silently disappear when an older app reads newer data.
+        function cleanData(value) {
+            function object(item, fields, path) {
+                if (!item || typeof item !== 'object' || Array.isArray(item)) throw Error(path + ': Objekt erwartet.');
+                if (Object.keys(item).some(key => !fields.includes(key))) {
+                    throw Error(path + ': Unbekannte Felder. Bitte die passende App-Version verwenden.');
+                }
+            }
+            function number(item, min, max, path) {
+                if (typeof item !== 'number' || !Number.isFinite(item) || item < min || item > max) {
+                    throw Error(path + ': Zahl zwischen ' + min + ' und ' + max + ' erwartet.');
+                }
+            }
+            function text(item, max, path) {
+                if (typeof item !== 'string' || item.length > max) throw Error(path + ': Ungültiger Text.');
+            }
+            function array(item, max, path) {
+                if (!Array.isArray(item) || item.length > max) throw Error(path + ': Ungültige Liste oder zu viele Einträge.');
+            }
+            function identity(item, seen, path) {
+                if (typeof item.id !== 'string' || !item.id.trim() || seen.has(item.id)) {
+                    throw Error(path + ': Fehlende oder doppelte ID.');
+                }
+                seen.add(item.id);
+                if (!isCalendarDate(item.date)) throw Error(path + ': Ungültiges Kalenderdatum.');
+            }
+            object(value, ['goal', 'entries', 'sessions', 'app', 'version', 'exportedAt'], 'Daten');
+            const has = key => Object.prototype.hasOwnProperty.call(value, key);
+            if (has('app') || has('version') || has('exportedAt')) {
+                if (value.app !== 'Vegan Strength' || value.version !== 2) {
+                    throw Error('Nur Vegan-Strength-Backups der Version 2 werden unterstützt.');
+                }
+                if (has('exportedAt') && (typeof value.exportedAt !== 'string' || !Number.isFinite(Date.parse(value.exportedAt)))) {
+                    throw Error('Ungültiges Exportdatum.');
+                }
+            }
+            number(value.goal, 50, 250, 'Proteinziel');
+            array(value.entries, 30000, 'Lebensmittel');
+            array(value.sessions, 10000, 'Trainings');
+            const entryIds = new Set(), sessionIds = new Set();
+            value.entries.forEach((entry, i) => {
+                const path = 'Lebensmittel ' + (i + 1);
+                object(entry, ['id', 'date', 'name', 'amount', 'protein'], path);
+                identity(entry, entryIds, path);
+                text(entry.name, 149, path + ' / Name');
+                number(entry.amount, Number.MIN_VALUE, 5000, path + ' / Menge');
+                number(entry.protein, 0, 100, path + ' / Protein');
+            });
+            value.sessions.forEach((session, i) => {
+                const path = 'Training ' + (i + 1);
+                object(session, ['id', 'date', 'workout', 'exercises'], path);
+                identity(session, sessionIds, path);
+                text(session.workout, 99, path + ' / Name');
+                array(session.exercises, 30, path + ' / Übungen');
+                session.exercises.forEach((exercise, j) => {
+                    const exPath = path + ' / Übung ' + (j + 1);
+                    object(exercise, ['name', 'sets'], exPath);
+                    text(exercise.name, 150, exPath + ' / Name');
+                    array(exercise.sets, 12, exPath + ' / Sätze');
+                    exercise.sets.forEach((set, k) => {
+                        const setPath = exPath + ' / Satz ' + (k + 1);
+                        object(set, ['reps', 'kg', 'done'], setPath);
+                        number(set.reps, 0, 999, setPath + ' / Wiederholungen oder Sekunden');
+                        number(set.kg, 0, 999, setPath + ' / kg');
+                        if (typeof set.done !== 'boolean') throw Error(setPath + ': Satzstatus fehlt oder ist ungültig.');
+                    });
+                });
+            });
+            return JSON.parse(JSON.stringify({ goal: value.goal, entries: value.entries, sessions: value.sessions }));
+        }
+
+        function createDataStore(getStorage) {
+            let raw = null, readable = false, current = null, problem = null;
+            function load() {
+                readable = false;
+                current = null;
+                try {
+                    raw = getStorage().getItem(KEY);
+                    readable = true;
+                    current = raw === null ? emptyData() : cleanData(JSON.parse(raw));
+                    problem = null;
+                } catch (error) { problem = error; }
+                return current;
+            }
+            function write(candidate, { replacement = false, allowReset = false } = {}) {
+                try {
+                    if (!readable || (!current && !replacement && !allowReset)) {
+                        throw Error('Die gespeicherten Daten sind nicht geladen. Bitte zuerst Originaldaten sichern und ein gültiges Backup importieren oder erneut laden.');
+                    }
+                    const next = cleanData(candidate);
+                    const serialized = JSON.stringify(next);
+                    const storage = getStorage();
+                    if (storage.getItem(KEY) !== raw) {
+                        throw Error('Die Daten wurden in einem anderen Fenster geändert. Bitte gespeicherte Daten erneut laden; deine Trainingseingaben bleiben dabei erhalten.');
+                    }
+                    if (replacement && raw !== null) storage.setItem(RECOVERY_KEY, raw);
+                    // localStorage.setItem either replaces this one key or throws.
+                    // Never publish in-memory changes before this write succeeds.
+                    storage.setItem(KEY, serialized);
+                    raw = serialized;
+                    current = next;
+                    problem = null;
+                    return next;
+                } catch (error) { problem = error; throw error; }
+            }
+            return {
+                load, write,
+                get raw() { return raw; },
+                get problem() { return problem; },
+                get loaded() { return current !== null; },
+                previous() { return getStorage().getItem(RECOVERY_KEY); },
+                removePrevious() { getStorage().removeItem(RECOVERY_KEY); }
+            };
+        }
+
+        const store = createDataStore(() => localStorage);
+        let data = store.load() || emptyData();
+        function renderStorageStatus() {
+            $('storageNotice').classList.toggle('hidden', !store.problem);
+            $('storageNoticeTitle').textContent = store.loaded ? 'Änderung nicht gespeichert' : 'Deine Daten konnten nicht geladen werden';
+            $('storageMessage').textContent = store.problem
+                ? (store.loaded ? 'Dein bisheriger Datenstand und deine Eingaben bleiben erhalten. ' : 'Die angezeigten Werte sind kein geladener Datenstand. Deine Originaldaten werden nicht automatisch überschrieben. ') + store.problem.message
+                : '';
+            $('exportOriginal').classList.toggle('hidden', !store.problem || store.raw === null);
+            try { $('exportPrevious').classList.toggle('hidden', store.previous() === null); }
+            catch { $('exportPrevious').classList.add('hidden'); }
+        }
+        function persist(candidate, options) {
+            try {
+                data = store.write(candidate, options);
+                renderStorageStatus();
+                return true;
+            } catch (error) {
+                renderStorageStatus();
+                alert('Nicht gespeichert: ' + error.message + '\nBitte Speicherzugriff und freien Speicherplatz prüfen.');
+                return false;
+            }
+        }
+        let current = 0, drafts = {};
+        function go(tab) { document.querySelectorAll('.section').forEach(x => x.classList.toggle('active', x.id === tab)); document.querySelectorAll('[data-tab]').forEach(x => x.classList.toggle('active', x.dataset.tab === tab)); window.scrollTo(0, 0); render() }
+        document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => go(b.dataset.tab));
+        document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
         function dayTotal(date) { return data.entries.filter(e => e.date === date).reduce((a, e) => a + e.amount * e.protein / 100, 0) } function renderHome() { const t = dayTotal(today()); $('homeProtein').textContent = `${fmt(t)} / ${data.goal} g`; $('homeProgress').style.width = `${Math.min(100, t / data.goal * 100)}%`; $('homeRemaining').textContent = t >= data.goal ? 'Tagesziel erreicht!' : `${fmt(data.goal - t)} g bis zum Tagesziel`; const monday = new Date(); const weekday = (monday.getDay() + 6) % 7; monday.setDate(monday.getDate() - weekday); monday.setHours(0, 0, 0, 0); const week = data.sessions.filter(s => new Date(s.date + 'T12:00:00') >= monday).length; $('homeSessions').textContent = `${week} / 4`; const next = workouts[data.sessions.length % 4]; $('nextTitle').textContent = next.name; $('nextSub').textContent = `${next.day} · ${next.focus} · ca. 45 Minuten`; $('startNext').onclick = () => { current = data.sessions.length % 4; $('workoutSelect').value = String(current); renderTraining(); go('training') } }
-        function initDraft() { if (!drafts[current]) { const last = data.sessions.find(s => s.workout === workouts[current].name); drafts[current] = workouts[current].ex.map((e, i) => Array.from({ length: e[1] }, (_, j) => ({ reps: last?.exercises?.[i]?.sets?.[j]?.reps || '', kg: last?.exercises?.[i]?.sets?.[j]?.kg || '', done: false }))) } } function renderTraining() { initDraft(); const w = workouts[current]; $('workoutSelect').value = String(current); $('workoutInfo').textContent = `${w.day} · ${w.focus} · 40–45 Minuten`; $('sessionStatus').textContent = `${drafts[current].flat().filter(s => s.done).length} Sätze abgehakt`; $('exerciseList').innerHTML = w.ex.map((e, i) => `<div class="exercise"><div class="row"><div><strong>${escapeHtml(e[0])}</strong><div class="small">${e[1]} × ${e[2]} · ${e[3]} s Pause</div></div></div><div class="sets">${drafts[current][i].map((s, j) => `<div class="setrow ${s.done ? 'done' : ''}"><span class="small">S${j + 1}</span><div><label>Wdh. / Sek.</label><input class="input" inputmode="numeric" type="number" min="0" max="999" data-e="${i}" data-s="${j}" data-field="reps" value="${s.reps}"></div><div><label>kg</label><input class="input" inputmode="decimal" type="number" min="0" max="999" step="0.5" data-e="${i}" data-s="${j}" data-field="kg" value="${s.kg}"></div><button class="btn ${s.done ? 'primary' : 'ghost'}" data-done="${i}:${j}" aria-label="Satz ${j + 1} abhaken">${s.done ? '✓' : '○'}</button></div>`).join('')}</div></div>`).join(''); $('exerciseList').querySelectorAll('input').forEach(el => el.onchange = () => { drafts[current][+el.dataset.e][+el.dataset.s][el.dataset.field] = el.value }); $('exerciseList').querySelectorAll('[data-done]').forEach(b => b.onclick = () => { const [i, j] = b.dataset.done.split(':').map(Number); drafts[current][i][j].done = !drafts[current][i][j].done; if (drafts[current][i][j].done) { timerSeconds = w.ex[i][3]; startTimer() } renderTraining() }) }
-        $('workoutSelect').innerHTML = workouts.map((w, i) => `<option value="${i}">${w.day} – ${w.name}</option>`).join(''); $('workoutSelect').onchange = e => { current = +e.target.value; renderTraining() }; $('resetWorkout').onclick = () => { if (confirm('Aktuelle, noch nicht gespeicherte Eingaben leeren?')) { delete drafts[current]; renderTraining() } }; $('saveWorkout').onclick = () => { initDraft(); const ex = workouts[current].ex.map((e, i) => ({ name: e[0], sets: drafts[current][i].map(s => ({ reps: num(s.reps), kg: num(s.kg), done: s.done })) })); if (!ex.some(e => e.sets.some(s => s.done))) { alert('Bitte hake mindestens einen abgeschlossenen Satz ab.'); return } data.sessions.unshift({ id: crypto.randomUUID(), date: today(), workout: workouts[current].name, exercises: ex }); persist(); delete drafts[current]; alert('Training gespeichert!'); go('progress') };
-        $('foodSelect').innerHTML = foods.map((f, i) => `<option value="${i}">${f[0]} · ${fmt(f[1])} g / 100 g</option>`).join(''); $('foodDate').value = today(); function addEntry(name, p, amount) { const date = $('foodDate').value; if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !(amount > 0 && amount <= 5000) || !(p >= 0 && p <= 100)) { alert('Bitte gültige Werte eingeben.'); return } data.entries.push({ id: crypto.randomUUID(), date, name, protein: p, amount }); persist(); renderProtein(); renderHome() }; $('addFood').onclick = () => { const f = foods[+$('foodSelect').value]; addEntry(f[0], f[1], num($('foodAmount').value)) }; $('addCustom').onclick = () => { const name = $('customName').value.trim(); const p = Number($('customP').value); if (!name || name.length > 149 || $('customP').value === '' || !Number.isFinite(p)) { alert('Bitte Namen und Proteingehalt eingeben.'); return } addEntry(name, p, num($('customAmount').value)); $('customName').value = '' }; $('foodDate').onchange = renderProtein;
-        function renderProtein() { const date = $('foodDate').value; const list = data.entries.filter(e => e.date === date); const total = dayTotal(date); $('proteinTotal').textContent = fmt(total); $('proteinGoalLabel').textContent = data.goal; $('proteinPercent').textContent = `${Math.round(total / data.goal * 100)} %`; $('proteinProgress').style.width = `${Math.min(100, total / data.goal * 100)}%`; $('proteinRemaining').textContent = total >= data.goal ? 'Ziel erreicht!' : `${fmt(data.goal - total)} g fehlen noch`; $('foodCount').textContent = list.length; $('foodList').innerHTML = list.length ? list.map(e => `<div class="foodrow"><div class="grow"><strong>${escapeHtml(e.name)}</strong><div class="small">${fmt(e.amount)} g/ml · ${fmt(e.protein)} g / 100</div></div><strong>${fmt(e.amount * e.protein / 100)} g</strong><button class="btn ghost" data-remove="${escapeHtml(e.id)}" aria-label="Eintrag löschen">✕</button></div>`).join('') : '<p class="muted small">Noch keine Einträge an diesem Tag.</p>'; $('foodList').querySelectorAll('[data-remove]').forEach(b => b.onclick = () => { data.entries = data.entries.filter(e => e.id !== b.dataset.remove); persist(); render() }) }
+        function initDraft() { if (!drafts[current]) { const last = data.sessions.find(s => s.workout === workouts[current].name); drafts[current] = workouts[current].ex.map((e, i) => Array.from({ length: e[1] }, (_, j) => ({ reps: last?.exercises?.[i]?.sets?.[j]?.reps || '', kg: last?.exercises?.[i]?.sets?.[j]?.kg || '', done: false }))) } } function renderTraining() { initDraft(); const w = workouts[current]; $('workoutSelect').value = String(current); $('workoutInfo').textContent = `${w.day} · ${w.focus} · 40–45 Minuten`; $('sessionStatus').textContent = `${drafts[current].flat().filter(s => s.done).length} Sätze abgehakt`; $('exerciseList').innerHTML = w.ex.map((e, i) => `<div class="exercise"><div class="row"><div><strong>${escapeHtml(e[0])}</strong><div class="small">${e[1]} × ${e[2]} · ${e[3]} s Pause</div></div></div><div class="sets">${drafts[current][i].map((s, j) => `<div class="setrow ${s.done ? 'done' : ''}"><span class="small">S${j + 1}</span><div><label>Wdh. / Sek.</label><input class="input" inputmode="numeric" type="number" min="0" max="999" data-e="${i}" data-s="${j}" data-field="reps" value="${s.reps}"></div><div><label>kg</label><input class="input" inputmode="decimal" type="number" min="0" max="999" step="0.5" data-e="${i}" data-s="${j}" data-field="kg" value="${s.kg}"></div><button class="btn ${s.done ? 'primary' : 'ghost'}" data-done="${i}:${j}" aria-label="Satz ${j + 1} abhaken">${s.done ? '✓' : '○'}</button></div>`).join('')}</div></div>`).join(''); $('exerciseList').querySelectorAll('input').forEach(el => el.oninput = () => { drafts[current][+el.dataset.e][+el.dataset.s][el.dataset.field] = el.value }); $('exerciseList').querySelectorAll('[data-done]').forEach(b => b.onclick = () => { const [i, j] = b.dataset.done.split(':').map(Number); drafts[current][i][j].done = !drafts[current][i][j].done; if (drafts[current][i][j].done) { timerSeconds = w.ex[i][3]; startTimer() } renderTraining() }) }
+        $('workoutSelect').innerHTML = workouts.map((w, i) => `<option value="${i}">${w.day} – ${w.name}</option>`).join('');
+        $('workoutSelect').onchange = e => { current = +e.target.value; renderTraining(); };
+        $('resetWorkout').onclick = () => {
+            if (confirm('Aktuelle, noch nicht gespeicherte Eingaben leeren?')) { delete drafts[current]; renderTraining(); }
+        };
+        $('saveWorkout').onclick = () => {
+            initDraft();
+            const value = input => input === '' ? 0 : Number(input);
+            const exercises = workouts[current].ex.map((exercise, i) => ({
+                name: exercise[0],
+                sets: drafts[current][i].map(set => ({ reps: value(set.reps), kg: value(set.kg), done: set.done }))
+            }));
+            if (!exercises.some(exercise => exercise.sets.some(set => set.done))) {
+                alert('Bitte hake mindestens einen abgeschlossenen Satz ab.');
+                return;
+            }
+            const session = { id: crypto.randomUUID(), date: today(), workout: workouts[current].name, exercises };
+            if (!persist({ ...data, sessions: [session, ...data.sessions] })) return;
+            delete drafts[current];
+            stopTimer();
+            alert('Training gespeichert!');
+            go('progress');
+        };
+        $('foodSelect').innerHTML = foods.map((food, i) => `<option value="${i}">${food[0]} · ${fmt(food[1])} g / 100 g</option>`).join('');
+        $('foodDate').value = today();
+        function addEntry(name, protein, amount) {
+            const date = $('foodDate').value;
+            if (!isCalendarDate(date) || !Number.isFinite(amount) || !(amount > 0 && amount <= 5000)
+                || !Number.isFinite(protein) || !(protein >= 0 && protein <= 100)) {
+                alert('Bitte gültige Werte eingeben.');
+                return false;
+            }
+            const entry = { id: crypto.randomUUID(), date, name, protein, amount };
+            if (!persist({ ...data, entries: [...data.entries, entry] })) return false;
+            renderProtein();
+            renderHome();
+            return true;
+        }
+        $('addFood').onclick = () => {
+            const food = foods[+$('foodSelect').value];
+            addEntry(food[0], food[1], Number($('foodAmount').value));
+        };
+        $('addCustom').onclick = () => {
+            const name = $('customName').value.trim();
+            const protein = Number($('customP').value);
+            if (!name || name.length > 149 || $('customP').value === '' || !Number.isFinite(protein)) {
+                alert('Bitte Namen und Proteingehalt eingeben.');
+                return;
+            }
+            if (addEntry(name, protein, Number($('customAmount').value))) $('customName').value = '';
+        };
+        $('foodDate').onchange = renderProtein;
+        function renderProtein() { const date = $('foodDate').value; const list = data.entries.filter(e => e.date === date); const total = dayTotal(date); $('proteinTotal').textContent = fmt(total); $('proteinGoalLabel').textContent = data.goal; $('proteinPercent').textContent = `${Math.round(total / data.goal * 100)} %`; $('proteinProgress').style.width = `${Math.min(100, total / data.goal * 100)}%`; $('proteinRemaining').textContent = total >= data.goal ? 'Ziel erreicht!' : `${fmt(data.goal - total)} g fehlen noch`; $('foodCount').textContent = list.length; $('foodList').innerHTML = list.length ? list.map(e => `<div class="foodrow"><div class="grow"><strong>${escapeHtml(e.name)}</strong><div class="small">${fmt(e.amount)} g/ml · ${fmt(e.protein)} g / 100</div></div><strong>${fmt(e.amount * e.protein / 100)} g</strong><button class="btn ghost" data-remove="${escapeHtml(e.id)}" aria-label="Eintrag löschen">✕</button></div>`).join('') : '<p class="muted small">Noch keine Einträge an diesem Tag.</p>'; $('foodList').querySelectorAll('[data-remove]').forEach(b => b.onclick = () => { if (persist({ ...data, entries: data.entries.filter(e => e.id !== b.dataset.remove) })) render() }) }
         function renderProgress() { const recent = Array.from({ length: 7 }, (_, i) => dayShift(i - 6)); const vals = recent.map(dayTotal); const max = Math.max(data.goal, ...vals, 1); $('proteinChart').innerHTML = recent.map((d, i) => `<div style="flex:1;min-width:0;text-align:center;align-self:stretch;display:flex;flex-direction:column;justify-content:end"><div class="small" style="font-size:10px">${Math.round(vals[i])}</div><div class="bar" title="${d}: ${fmt(vals[i])} g" style="height:${Math.max(2, vals[i] / max * 80)}px"></div><div class="small" style="font-size:10px">${d.slice(8)}</div></div>`).join(''); $('avgProtein').textContent = `${fmt(vals.reduce((a, b) => a + b, 0) / 7)} g`; $('allSessions').textContent = data.sessions.length; $('history').innerHTML = data.sessions.length ? data.sessions.slice(0, 20).map(s => `<div class="foodrow"><div class="grow"><strong>${escapeHtml(s.workout)}</strong><div class="small">${escapeHtml(s.date)} · ${s.exercises.reduce((a, e) => a + e.sets.filter(x => x.done).length, 0)} Sätze</div></div><button class="btn ghost" data-detail="${escapeHtml(s.id)}">Details</button></div>`).join('') : '<p class="small muted">Noch kein Workout gespeichert.</p>'; $('history').querySelectorAll('[data-detail]').forEach(b => b.onclick = () => { const s = data.sessions.find(s => s.id === b.dataset.detail); if (s) alert(`${s.workout} · ${s.date}\n\n` + s.exercises.map(e => e.name + ': ' + e.sets.filter(a => a.done).map(a => a.reps + ' Wdh., ' + a.kg + ' kg').join(' / ')).join('\n')) }) }
-        function render() { renderHome(); renderProtein(); renderProgress(); renderTraining(); $('goalInput').value = data.goal } let timerSeconds = 90, timerInterval = null; function timerText() { const m = Math.floor(timerSeconds / 60), s = timerSeconds % 60; $('timerDisplay').textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` }; function stopTimer() { clearInterval(timerInterval); timerInterval = null; $('timerStart').textContent = '▶ Start' } function startTimer() { stopTimer(); timerText(); const end = Date.now() + timerSeconds * 1000; timerInterval = setInterval(() => { timerSeconds = Math.max(0, Math.ceil((end - Date.now()) / 1000)); timerText(); if (timerSeconds <= 0) { stopTimer(); if (navigator.vibrate) navigator.vibrate([150, 100, 150]) } }, 250); $('timerStart').textContent = '↻ Neustart' } $('timerStart').onclick = () => { if (timerSeconds <= 0) timerSeconds = 90; startTimer() }; $('timerStop').onclick = stopTimer; document.querySelectorAll('[data-seconds]').forEach(b => b.onclick = () => { stopTimer(); timerSeconds = +b.dataset.seconds; timerText() }); $('saveGoal').onclick = () => { const g = num($('goalInput').value); if (g < 50 || g > 250) return alert('Bitte Ziel zwischen 50 und 250 g eingeben.'); data.goal = g; persist(); render() };
-        $('exportData').onclick = () => { const blob = new Blob([JSON.stringify({ app: 'Vegan Strength', version: 2, exportedAt: new Date().toISOString(), ...data }, null, 2)], { type: 'application/json' }); const a = document.createElement('a'); const url = URL.createObjectURL(blob); a.href = url; a.download = `vegan-strength-backup-${today()}.json`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 3000) }; $('importFile').onchange = async e => { const f = e.target.files[0]; if (!f) return; if (f.size > 15 * 1024 * 1024) return alert('Datei zu groß.'); try { const incoming = cleanData(JSON.parse(await f.text())); if (confirm('Vorhandene Daten durch dieses Backup ersetzen?')) { data = incoming; persist(); drafts = {}; render(); alert('Backup importiert.') } } catch (err) { alert('Import fehlgeschlagen: ' + err.message) } e.target.value = '' }; $('clearData').onclick = () => { if (confirm('Wirklich ALLE lokalen Einträge löschen? Bitte vorher ein Backup erstellen.')) { data = cleanData({}); drafts = {}; persist(); render() } };
-        let installPrompt = null; window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; $('installBtn').classList.remove('hidden') }); $('installBtn').onclick = async () => { if (!installPrompt) return; installPrompt.prompt(); await installPrompt.userChoice; installPrompt = null; $('installBtn').classList.add('hidden') }; function updateOnline() { $('offline').textContent = navigator.onLine ? '● Lokal' : '● Offline' } window.addEventListener('online', updateOnline); window.addEventListener('offline', updateOnline); updateOnline(); if ('serviceWorker' in navigator && location.protocol !== 'file:') { navigator.serviceWorker.register('./sw.js').then(() => $('swStatus').textContent = 'Offline-Unterstützung aktiviert (nach erstem vollständigen Laden).').catch(() => $('swStatus').textContent = 'Offline-Unterstützung konnte nicht aktiviert werden.') } else $('swStatus').textContent = 'Für Installation und Offline-Modus bitte per HTTPS öffnen.'; render();
+        function render() { renderHome(); renderProtein(); renderProgress(); renderTraining(); $('goalInput').value = data.goal; renderStorageStatus() } let timerSeconds = 90, timerInterval = null; function timerText() { const m = Math.floor(timerSeconds / 60), s = timerSeconds % 60; $('timerDisplay').textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` }; function stopTimer() { clearInterval(timerInterval); timerInterval = null; $('timerStart').textContent = '▶ Start' } function startTimer() { stopTimer(); timerText(); const end = Date.now() + timerSeconds * 1000; timerInterval = setInterval(() => { timerSeconds = Math.max(0, Math.ceil((end - Date.now()) / 1000)); timerText(); if (timerSeconds <= 0) { stopTimer(); if (navigator.vibrate) navigator.vibrate([150, 100, 150]) } }, 250); $('timerStart').textContent = '↻ Neustart' } $('timerStart').onclick = () => { if (timerSeconds <= 0) timerSeconds = 90; startTimer() }; $('timerStop').onclick = stopTimer; document.querySelectorAll('[data-seconds]').forEach(b => b.onclick = () => { stopTimer(); timerSeconds = +b.dataset.seconds; timerText() }); $('saveGoal').onclick = () => {
+            const goal = Number($('goalInput').value);
+            if (!Number.isFinite(goal) || goal < 50 || goal > 250) return alert('Bitte Ziel zwischen 50 und 250 g eingeben.');
+            if (persist({ ...data, goal })) render();
+        };
+
+        function downloadText(text, filename) {
+            const blob = new Blob([text], { type: 'application/json' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 3000);
+        }
+        function exportBackup() {
+            if (!store.loaded) {
+                alert('Die Daten sind nicht geladen. Bitte lade stattdessen die Originaldaten herunter.');
+                return;
+            }
+            downloadText(JSON.stringify({ app: 'Vegan Strength', version: 2, exportedAt: new Date().toISOString(), ...data }, null, 2),
+                `vegan-strength-backup-${today()}.json`);
+        }
+        $('exportData').onclick = exportBackup;
+        $('exportOriginal').onclick = () => {
+            if (store.raw !== null) downloadText(store.raw, `vegan-strength-backup-original-${today()}.json`);
+        };
+        $('exportPrevious').onclick = () => {
+            try {
+                const previous = store.previous();
+                if (previous === null) return alert('Keine Sicherung vor einem Import vorhanden.');
+                downloadText(previous, `vegan-strength-backup-vor-import-${today()}.json`);
+            } catch { alert('Die Sicherung konnte nicht gelesen werden. Bitte den Speicherzugriff prüfen.'); }
+        };
+        $('retryStorage').onclick = () => {
+            const loaded = store.load();
+            if (loaded) data = loaded;
+            render();
+        };
+        $('importFile').onchange = async event => {
+            const input = event.target;
+            const file = input.files[0];
+            if (!file) return;
+            try {
+                if (file.size > 15 * 1024 * 1024) throw Error('Datei zu groß (maximal 15 MiB).');
+                const incoming = cleanData(JSON.parse(await file.text()));
+                const existing = store.loaded
+                    ? `${data.entries.length} Lebensmitteleinträge und ${data.sessions.length} Trainings`
+                    : 'der bisherige, nicht geladene Originalstand';
+                const message = `Backup wiederherstellen?\n\n${incoming.entries.length} Lebensmitteleinträge\n${incoming.sessions.length} Trainings\nProteinziel: ${fmt(incoming.goal)} g\n\nErsetzt werden: ${existing}.\nVor dem Ersetzen wird der bisherige Originalstand auf diesem Gerät gesichert. Du kannst ihn anschließend unter „Mehr“ herunterladen.`;
+                if (!confirm(message)) return;
+                if (!persist(incoming, { replacement: true })) return;
+                drafts = {};
+                stopTimer();
+                render();
+                alert('Backup importiert. Eine vorhandene Sicherung vor dem Import kannst du unter „Mehr“ herunterladen.');
+            } catch (error) {
+                alert('Import fehlgeschlagen: ' + error.message + '\nDeine bisherigen Daten bleiben unverändert.');
+            } finally { input.value = ''; }
+        };
+        $('clearData').onclick = () => {
+            if (!confirm('Wirklich ALLE lokalen Einträge und die Sicherung vor dem letzten Import löschen? Bitte vorher ein Backup erstellen.')) return;
+            if (!persist(emptyData(), { replacement: false, allowReset: true })) return;
+            drafts = {};
+            stopTimer();
+            try { store.removePrevious(); }
+            catch { alert('Die Einträge wurden geleert. Die Sicherung vor dem Import konnte nicht gelöscht werden. Bitte erneut löschen.'); }
+            render();
+        };
+        let installPrompt = null; window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; $('installBtn').classList.remove('hidden') }); $('installBtn').onclick = async () => { if (!installPrompt) return; installPrompt.prompt(); await installPrompt.userChoice; installPrompt = null; $('installBtn').classList.add('hidden') }; function updateOnline() { $('offline').textContent = navigator.onLine ? '● Lokal' : '● Offline' } window.addEventListener('online', updateOnline); window.addEventListener('offline', updateOnline); updateOnline(); if ('serviceWorker' in navigator && location.protocol !== 'file:') { navigator.serviceWorker.register('./sw.js').then(() => $('swStatus').textContent = 'Offline-Unterstützung aktiviert (nach erstem vollständigen Laden).').catch(() => $('swStatus').textContent = 'Offline-Unterstützung konnte nicht aktiviert werden.') } else $('swStatus').textContent = 'Für Installation und Offline-Modus bitte per HTTPS öffnen.'; render(); if (!store.loaded) go('settings');
     </script>
 </body>
 
