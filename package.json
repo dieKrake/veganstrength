@@ -1,0 +1,12 @@
+{
+  "name": "vegan-strength",
+  "version": "2.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test --test-isolation=none --test-reporter=spec tests/*.test.cjs"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

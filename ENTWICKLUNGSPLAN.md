@@ -240,3 +240,15 @@ Es wurden keine persönlichen Browserdaten gelesen oder migriert. Installation, 
 - Im lokalen Browser wurden Lebensmittel-Erfassung, Erhalt nach Neuladen, v2-Importvorschau, Sicherungsschaltfläche, importierte Trainingshistorie und das Layout bei 390 × 844 Pixeln geprüft. Es wurden ausschließlich synthetische Daten auf einer lokalen Testadresse verwendet. Kein Ersatz für die spätere Android-Geräte- und Offline-Abnahme.
 
 Speicherformat, Schlüssel, Proteinberechnung und bestehender Trainingsplan sind unverändert. Nächste Etappe: Modularisierung mit v2 als unverändertem Datenvertrag.
+
+### Etappe 2 – umgesetzt am 9. November 2026
+
+- Die bisherigen CSS-Regeln liegen unverändert in `styles/app.css`; `index.html` bindet `src/main.js` als Modul ein. Fachlogik, Stammdaten, Speicherung, Features, Timer, Backup und PWA sind getrennt. Die tatsächliche Struktur ist in `docs/ARCHITEKTUR.md` beschrieben.
+- Die UI verwendet eine asynchrone Repository-Schnittstelle vor dem bisherigen localStorage-Adapter. Eine gemeinsame Aktionswarteschlange verarbeitet Änderungen nacheinander; neue Kandidaten beruhen auf dem zuletzt bestätigten Datenstand. Ein laufender Workout-Abschluss sperrt seine Felder und verhindert doppelte Speicherung.
+- Navigation und Timer sind unabhängig von den Feature-Ansichten. Fachfremde Änderungen bauen bestehende Trainingsfelder nicht neu auf. Geänderte Werte erscheinen beim Wechsel in die betreffende Ansicht.
+- HTML-Oberfläche, CSS-Regeln sowie alle Trainings- und Lebensmittelvorlagen wurden gegen Commit `6fb9f3b` abgeglichen. Der v2-Export des synthetischen Referenzbestands ist bei identischem Exportzeitpunkt textgleich zum vorherigen Export.
+- Cache-Version `vegan-strength-v2.1.0` umfasst den vollständigen Modulgraphen. Ein Update wartet auf das Schließen der vorherigen App-Version. Offline-Antworten verwenden ausschließlich den Cache des jeweiligen Workers. Unvollständige Releases können die Installation nicht abschließen.
+- Die 40 bisherigen Regressionstests bestehen weiterhin. Zusätzliche Tests prüfen die Aktionswarteschlange, verzögerte Schreibvorgänge, die Workout-Sperre, Erhalt von Trainingsfeldern, Modul-Cache, Unterverzeichnis-Hosting und fehlgeschlagene Installationen. Ausführung: `npm test`, ohne Zusatzpakete.
+- Im Browser wurden Protein-Erfassung, Satzeingabe, automatischer Pausentimer und Erhalt des gespeicherten Workouts nach Neustart geprüft. Nach Abschalten des lokalen Servers funktionierten Seitenneuladen, Start in einem neuen Tab, weitere Protein-Erfassung und v2-Backup-Export. Der heruntergeladene Testexport enthielt die erwarteten Werte. Dies ersetzt weiterhin keine Abnahme auf einem echten Android-Gerät.
+
+Das v2-Datenformat und beide bisherigen localStorage-Schlüssel bleiben erhalten. IndexedDB und dauerhaft gespeicherte Entwürfe folgen in Etappe 3.

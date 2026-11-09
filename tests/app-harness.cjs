@@ -1,12 +1,10 @@
-// Executes the real inline application and its event handlers with synthetic
+// Executes the real application modules and their event handlers with synthetic
 // browser storage. This small DOM substitute is not an Android/browser test.
 const fs = require('node:fs');
-const vm = require('node:vm');
 const { webcrypto } = require('node:crypto');
 const path = require('node:path');
 
 const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
-const source = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/v2.json'), 'utf8'));
 const KEY = 'vegan-strength-v2';
 const RECOVERY = KEY + '-before-import';
@@ -57,6 +55,7 @@ function classes(value = '') {
     const names = new Set(value.split(/\s+/).filter(Boolean));
     return {
         add: name => names.add(name),
+        remove: name => names.delete(name),
         contains: name => names.has(name),
         toggle(name, force = !names.has(name)) { if (force) names.add(name); else names.delete(name); }
     };
@@ -71,9 +70,12 @@ class Element {
         this.style = {};
         this.classList = classes();
         this.files = [];
-        this.innerHTML = '';
+        this._markup = '';
+        this.innerHTMLWrites = 0;
         this.childrenBySelector = new Map();
     }
+    get innerHTML() { return this._markup; }
+    set innerHTML(value) { this._markup = value; this.innerHTMLWrites++; this.childrenBySelector.clear(); }
     querySelectorAll(selector) {
         const old = this.childrenBySelector.get(selector);
         if (old?.markup === this.innerHTML) return old.children;
@@ -81,11 +83,11 @@ class Element {
         this.childrenBySelector.set(selector, { markup: this.innerHTML, children });
         return children;
     }
-    click() { this.onclick?.(); }
+    click() { if (!this.disabled) return this.onclick?.(); }
     remove() {}
 }
 
-function app(storage = new Storage(), { confirm = true } = {}) {
+async function app(storage = new Storage(), { confirm = true, beforeWrite } = {}) {
     const ids = new Map([...html.matchAll(/id="([^"]+)"/g)].map(match => [match[1], new Element()]));
     for (const match of html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g)) {
         ids.get(match[1]).classList = classes(match[0].match(/class="([^"]*)"/)?.[1]);
@@ -93,7 +95,7 @@ function app(storage = new Storage(), { confirm = true } = {}) {
     }
     const selectors = new Map();
     const alerts = [], confirmations = [], downloads = [], intervals = new Map();
-    const context = vm.createContext({
+    const environment = {
         document: {
             getElementById: id => {
                 if (!ids.has(id)) throw Error('Missing element: ' + id);
@@ -118,13 +120,30 @@ function app(storage = new Storage(), { confirm = true } = {}) {
         setTimeout() {},
         Blob,
         URL: { createObjectURL(blob) { downloads.push({ blob }); return 'blob:test'; }, revokeObjectURL() {} }
-    });
-    vm.runInContext(source, context, { filename: 'index.html' });
+    };
+    const { createApp } = await import('../src/app.js');
+    const { createRepository } = await import('../src/storage/repository.js');
+    const { createLocalStorageStore } = await import('../src/storage/local-storage.js');
+    const { dayTotal } = await import('../src/domain/protein.js');
+    const repository = createRepository(createLocalStorageStore(() => storage));
+    if (beforeWrite) {
+        const write = repository.write;
+        repository.write = async (...args) => { await beforeWrite(); return write(...args); };
+    }
+    const application = await createApp({ environment, repository });
     return {
         storage, alerts, confirmations, downloads, intervals,
         element: id => ids.get(id),
-        run: script => vm.runInContext(script, context),
-        data: () => JSON.parse(vm.runInContext('JSON.stringify(data)', context)),
+        navigate: application.navigate,
+        idle: application.whenIdle,
+        total: date => dayTotal(application.getData(), date),
+        data: application.getData,
+        draft() {
+            const list = ids.get('exerciseList');
+            const inputs = list.querySelectorAll('input');
+            return { reps: inputs[0]?.value, kg: inputs[1]?.value,
+                done: list.querySelectorAll('[data-done]')[0]?.classList.contains('primary') };
+        },
         async import(value, { size, raw } = {}) {
             const input = ids.get('importFile');
             const text = raw ?? JSON.stringify(value);
@@ -132,14 +151,15 @@ function app(storage = new Storage(), { confirm = true } = {}) {
             input.value = 'selected.json';
             await input.onchange({ target: input });
         },
-        checkSet(reps = '2', kg = '0') {
+        async checkSet(reps = '2', kg = '0') {
+            application.navigate('training');
             const list = ids.get('exerciseList');
             const inputs = list.querySelectorAll('input');
             inputs[0].value = reps;
             inputs[0].oninput();
             inputs[1].value = kg;
             inputs[1].oninput();
-            list.querySelectorAll('[data-done]')[0].click();
+            await list.querySelectorAll('[data-done]')[0].click();
         }
     };
 }

@@ -1,0 +1,50 @@
+export const foods = [
+    [
+        "Naturtofu",
+        15
+    ],
+    [
+        "Räuchertofu",
+        18
+    ],
+    [
+        "Tempeh",
+        19
+    ],
+    [
+        "Seitan",
+        25
+    ],
+    [
+        "Sojaskyr",
+        6
+    ],
+    [
+        "Sojamilch",
+        3.3
+    ],
+    [
+        "Linsen, gekocht",
+        9
+    ],
+    [
+        "Kichererbsen, gekocht",
+        8.5
+    ],
+    [
+        "Haferflocken",
+        13
+    ],
+    [
+        "Erdnussmus",
+        26
+    ],
+    [
+        "Vollkornbrot",
+        9
+    ],
+    [
+        "Veganes Proteinpulver",
+        75
+    ]
+];
