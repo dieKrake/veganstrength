@@ -10,6 +10,7 @@ import { createTraining } from './features/training.js';
 import { createProtein } from './features/protein.js';
 import { createProgress } from './features/progress.js';
 import { createSettings } from './features/settings.js';
+import { createPlanFeature } from './features/plan.js';
 
 export async function createApp({ environment = globalThis, repository } = {}) {
     const { document, window } = environment;
@@ -20,6 +21,7 @@ export async function createApp({ environment = globalThis, repository } = {}) {
         onVersionChange: () => settings?.renderStatus()
     }));
     let data = await repository.load() || emptyData();
+    let program = await repository.loadProgram();
     let pending = Promise.resolve();
     // Serialize whole user actions, including file reads and confirmations.
     // Each update derives its candidate from the latest committed snapshot.
@@ -33,11 +35,26 @@ export async function createApp({ environment = globalThis, repository } = {}) {
     async function persist(update, options) {
         try {
             data = await repository.write(update(data), options);
+            if (options?.program) program = structuredClone(options.program);
+            if (options?.allowReset) program = await repository.loadProgram();
             await settings.renderStatus();
             return true;
         } catch (error) {
             await settings.renderStatus();
             environment.alert('Nicht gespeichert: ' + error.message + '\nBitte Speicherzugriff und freien Speicherplatz prüfen.');
+            return false;
+        }
+    }
+    async function persistProgram(update) {
+        try {
+            const saved = await repository.saveProgram(update(program));
+            if (!saved) throw Error('Der Plan konnte nicht gespeichert werden.');
+            program = saved;
+            await settings.renderStatus();
+            return true;
+        } catch (error) {
+            await settings.renderStatus();
+            environment.alert('Plan nicht gespeichert: ' + error.message);
             return false;
         }
     }
@@ -47,7 +64,9 @@ export async function createApp({ environment = globalThis, repository } = {}) {
         $: id => document.getElementById(id),
         getData: () => data,
         setData: loaded => { data = loaded; },
-        persist, runAction, repository, environment,
+        getProgram: () => program,
+        setProgram: loaded => { program = loaded; },
+        persist, persistProgram, runAction, repository, environment,
         storageStatus: () => settings.renderStatus(),
         go: navigation.go,
         refresh: navigation.refresh,
@@ -68,17 +87,20 @@ export async function createApp({ environment = globalThis, repository } = {}) {
         timer.refresh();
         if (document.visibilityState === 'hidden') void training.flush();
     });
-    views.training = training;
+    const planFeature = createPlanFeature(context, training);
+    views.training = { render() { planFeature.renderPlan(); training.render(); } };
     views.home = createHome(context, training);
     views.protein = createProtein(context);
     views.progress = createProgress(context);
-    views.settings = settings = createSettings(context, training, timer);
+    settings = createSettings(context, training, timer);
+    views.settings = { render() { settings.render(); planFeature.renderProfile(); } };
     initializePwa(environment);
     await settings.renderStatus();
     navigation.go(repository.loaded ? (Object.keys(restored.drafts).length ? 'training' : 'home') : 'settings');
     return {
         navigate: navigation.go,
         getData: () => structuredClone(data),
+        getProgram: () => structuredClone(program),
         async whenIdle() { await training.flush(); await pending; },
         close() { repository.close(); }
     };

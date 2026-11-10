@@ -35,17 +35,20 @@ class Storage {
 }
 
 function elements(markup, selector) {
-    return [...markup.matchAll(/<(input|button|section)\b([^>]*)>/g)].map(match => {
+    return [...markup.matchAll(/<(input|button|section|select)\b([^>]*)>/g)].map(match => {
         const element = new Element(match[1]);
         for (const attr of match[2].matchAll(/([\w-]+)="([^"]*)"/g)) {
             element.attributes[attr[1]] = attr[2];
-            if (attr[1].startsWith('data-')) element.dataset[attr[1].slice(5)] = attr[2];
+            if (attr[1].startsWith('data-')) element.dataset[attr[1].slice(5).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())] = attr[2];
         }
         element.id = element.attributes.id;
+        element.disabled = /\bdisabled\b/.test(match[2]);
+        element.checked = /\bchecked\b/.test(match[2]);
         element.value = element.attributes.value || '';
         element.classList = classes(element.attributes.class);
         return element;
     }).filter(element => {
+        if (selector === '*') return true;
         if (selector.startsWith('[')) return selector.slice(1, -1) in element.attributes;
         if (selector.startsWith('.')) return element.classList.contains(selector.slice(1));
         return element.tag === selector;
@@ -63,7 +66,7 @@ function classes(value = '') {
 class Element {
     constructor(tag = 'div') {
         this.tag = tag;
-        this.value = '';
+        this._value = '';
         this.textContent = '';
         this.dataset = {};
         this.attributes = {};
@@ -74,15 +77,20 @@ class Element {
         this.innerHTMLWrites = 0;
         this.childrenBySelector = new Map();
     }
+    get value() { return this._value; }
+    set value(value) { this._value = String(value); }
+    setAttribute(name, value) { this.attributes[name] = String(value); }
     get innerHTML() { return this._markup; }
     set innerHTML(value) { this._markup = value; this.innerHTMLWrites++; this.childrenBySelector.clear(); }
     querySelectorAll(selector) {
-        const old = this.childrenBySelector.get(selector);
-        if (old?.markup === this.innerHTML) return old.children;
-        const children = elements(this.innerHTML, selector);
-        this.childrenBySelector.set(selector, { markup: this.innerHTML, children });
-        return children;
+        if (!this.childrenBySelector.has('*')) this.childrenBySelector.set('*', elements(this.innerHTML, '*'));
+        return this.childrenBySelector.get('*').filter(element => {
+            if (selector === '*') return true;
+            if (selector.startsWith('[')) return selector.slice(1, -1) in element.attributes;
+            return element.tag === selector;
+        });
     }
+
     click() { if (!this.disabled) return this.onclick?.(); }
     remove() {}
 }
@@ -98,8 +106,12 @@ async function app(storage = new Storage(), { confirm = true, beforeWrite, index
     const environment = {
         document: {
             getElementById: id => {
-                if (!ids.has(id)) throw Error('Missing element: ' + id);
-                return ids.get(id);
+                if (ids.has(id)) return ids.get(id);
+                for (const element of ids.values()) {
+                    const child = element.querySelectorAll('*').find(item => item.id === id);
+                    if (child) return child;
+                }
+                throw Error('Missing element: ' + id);
             },
             querySelectorAll(selector) {
                 if (!selectors.has(selector)) selectors.set(selector, elements(html, selector));
@@ -141,6 +153,7 @@ async function app(storage = new Storage(), { confirm = true, beforeWrite, index
         close: application.close,
         total: date => dayTotal(application.getData(), date),
         data: application.getData,
+        program: application.getProgram,
         draft() {
             const list = ids.get('exerciseList');
             const inputs = list.querySelectorAll('input');

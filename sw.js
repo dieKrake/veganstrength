@@ -1,4 +1,4 @@
-const CACHE = 'vegan-strength-v2.2.1';
+const CACHE = 'vegan-strength-v2.3.2';
 const ASSETS = [
     "./",
     "./index.html",
@@ -7,14 +7,19 @@ const ASSETS = [
     "./icon-192.png",
     "./icon-512.png",
     "./src/app.js",
+    "./src/data/exercises.js",
     "./src/data/foods.js",
     "./src/data/workouts.js",
     "./src/domain/dates.js",
+    "./src/domain/program-validation.js",
+    "./src/domain/program.js",
+    "./src/domain/progression.js",
     "./src/domain/protein.js",
     "./src/domain/statistics.js",
     "./src/domain/training-state.js",
     "./src/domain/validation.js",
     "./src/features/home.js",
+    "./src/features/plan.js",
     "./src/features/progress.js",
     "./src/features/protein.js",
     "./src/features/settings.js",

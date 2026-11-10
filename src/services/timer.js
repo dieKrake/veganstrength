@@ -7,6 +7,8 @@ export function createTimer({ document, navigator, setInterval, clearInterval, n
         const value = remaining();
         display.textContent = `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
         startButton.textContent = endAt === null ? '▶ Start' : '↻ Neustart';
+        document.getElementById('workoutTimer')?.classList?.toggle('timer-running', endAt !== null);
+        document.body?.classList?.toggle('has-active-rest', endAt !== null);
     }
     function stop(notify = true) {
         seconds = remaining();

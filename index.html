@@ -57,17 +57,36 @@
                 <h3>Deine Ausgangswerte</h3>
                 <div class="grid">
                     <div><span class="muted">Klimmzüge</span>
-                        <div class="value">3</div>
+                        <div class="value" id="homePullUps">3</div>
                     </div>
                     <div><span class="muted">Push-ups</span>
-                        <div class="value">6</div>
+                        <div class="value" id="homePushUps">6</div>
                     </div>
                 </div>
-                <p class="small">8-Wochen-Ziele: 5 Klimmzüge und 10 Push-ups – Orientierungswerte, keine Garantie.</p>
+                <p class="small" id="homeBaselineNote">8-Wochen-Ziele: 5 Klimmzüge und 10 Push-ups – Orientierungswerte, keine Garantie.</p>
             </div>
         </section>
         <section id="training" class="section">
             <h2>Training</h2>
+            <details class="card" id="planCard" open>
+                <summary>Dein 8-Wochen-Plan</summary>
+                <p class="small" id="planProfileSummary"></p>
+                <div id="planEmpty"><p>Vier Einheiten à 45 Minuten mit Oberkörperfokus. Prüfe deine Basiswerte unter „Mehr“ und starte deinen Plan.</p></div>
+                <div id="planActive" class="hidden">
+                    <h3 id="planTitle"></h3><p id="planSummary"></p><p class="small" id="planPhase"></p><p id="planNext"></p>
+                    <details><summary>Alle 8 Wochen · Einheiten öffnen oder verschieben</summary><div id="planWeeks"></div></details>
+                    <p class="small" id="planArchive"></p>
+                </div>
+                <details><summary>Plan starten oder neu beginnen</summary><div class="stack spaced">
+                    <label for="planStartDate">Startdatum für Upper A (Montag empfohlen)</label><input class="input" id="planStartDate" type="date">
+                    <button class="btn primary wide" id="startPlan">8-Wochen-Plan starten</button>
+                </div></details>
+                <p class="small" id="planFeedback" role="status"></p>
+                <p class="small">Grundlage: <a href="https://pubmed.ncbi.nlm.nih.gov/41843416/" target="_blank" rel="noopener noreferrer">ACSM 2026</a>. Die konkrete Wochenaufteilung ist auf deinen Einstieg zugeschnitten.</p>
+            </details>
+            <p id="trainingMode" class="notice small"></p>
+            <p id="trainingAdviceStatus" class="small" role="status"></p>
+            <button class="btn ghost wide" id="useFreeTraining">Freies Training mit bisherigen Vorlagen öffnen</button>
             <p class="small" id="draftStatus" role="status" aria-live="polite">Trainingsentwurf wird geladen …</p>
             <button class="btn ghost hidden" id="retryDraft">Entwurf erneut speichern</button>
             <div class="card"><label for="workoutSelect">Workout wählen</label><select class="input"
@@ -78,21 +97,21 @@
             </div>
             <div class="card">
                 <div class="row">
-                    <h3>Deine Übungen</h3><span class="small">1–3 Wdh. in Reserve</span>
+                    <h3>Deine Übungen</h3><span class="small" id="trainingReserve">1–3 Wdh. in Reserve</span>
                 </div>
                 <div id="exerciseList"></div><button class="btn primary wide" id="saveWorkout">Workout abschließen &
                     speichern</button>
             </div>
-            <div class="card">
+            <div class="card" id="workoutTimer">
                 <div class="row">
                     <div>
                         <div class="eyebrow">Pausentimer</div>
                         <div class="value" id="timerDisplay">01:30</div>
-                    </div><button class="btn" id="timerStart">▶ Start</button>
+                    </div><button class="btn" id="timerStart">▶ Start</button><button class="btn ghost" id="timerStop">Stopp</button>
                 </div>
                 <div class="row spaced"><button class="btn ghost" data-seconds="60">60 s</button><button
                         class="btn ghost" data-seconds="90">90 s</button><button class="btn ghost"
-                        data-seconds="120">120 s</button><button class="btn ghost" id="timerStop">Stopp</button></div>
+                        data-seconds="120">120 s</button></div>
             </div>
             <p class="small">Vorher 4–5 Minuten aufwärmen. Passe die Schwierigkeit an, damit jede Wiederholung sauber
                 bleibt. Für Ringübungen nur sicher befestigte Ringe verwenden.</p>
@@ -164,6 +183,8 @@
             </div>
             <div class="card">
                 <h3>8-Wochen-Progression</h3>
+                <p class="small" id="planProgress"></p>
+                <button class="btn ghost wide" data-go="training">Zur Planübersicht</button>
                 <p class="small">Woche 1–2: Technik und Ausgangswerte · Woche 3–4: Wiederholungen steigern · Woche 5–6:
                     Belastung erhöhen, wenn alle Sätze sauber gelingen · Woche 7: Fortschritt fortsetzen · Woche 8:
                     Testen und bei Bedarf leichter trainieren.</p>
@@ -173,6 +194,23 @@
         </section>
         <section id="settings" class="section">
             <h2>Einstellungen & Daten</h2>
+            <details class="card"><summary>Dein Profil & Home-Gym</summary>
+                <p class="small">Vegan · Muskelaufbau · Oberkörperfokus · 4 × 45 Minuten. Änderungen der Basiswerte gelten für neue Pläne. Laufende Pläne behalten ihre Startwerte.</p>
+                <div class="grid"><div><label for="profile-age">Alter</label><input class="input" id="profile-age" type="number" inputmode="decimal" min="18" max="100" step="1"></div>
+<div><label for="profile-height">Größe (cm)</label><input class="input" id="profile-height" type="number" inputmode="decimal" min="100" max="250" step="1"></div>
+<div><label for="profile-weight">Gewicht (kg)</label><input class="input" id="profile-weight" type="number" inputmode="decimal" min="30" max="250" step="0.1"></div>
+<div><label for="profile-goal">Protein-Tagesziel (g)</label><input class="input" id="profile-goal" type="number" inputmode="decimal" min="50" max="250" step="1"></div>
+<div><label for="profile-pullUps">Saubere Klimmzüge am Stück</label><input class="input" id="profile-pullUps" type="number" inputmode="decimal" min="0" max="50" step="1"></div>
+<div><label for="profile-pushUps">Saubere Push-ups am Stück</label><input class="input" id="profile-pushUps" type="number" inputmode="decimal" min="0" max="100" step="1"></div>
+<div><label for="profile-dumbbellStep">Hantelsteigerung (kg pro Hantel)</label><input class="input" id="profile-dumbbellStep" type="number" inputmode="decimal" min="0.1" max="20" step="0.1"></div>
+<div><label for="profile-kettlebellStep">Kettlebell-Steigerung (kg)</label><input class="input" id="profile-kettlebellStep" type="number" inputmode="decimal" min="0.1" max="40" step="0.1"></div>
+</div><label class="spaced" for="profile-weights">Verfügbare Kurzhantelgewichte je Hantel (optional)</label>
+                <input class="input" id="profile-weights" placeholder="z. B. 2; 4; 6; 8; 10">
+                <p class="small">Mit Semikolon trennen; Dezimalwerte z. B. 2,5. Leer: Vorschläge nutzen den eingestellten Gewichtsschritt.</p>
+                <div id="profileEquipment" class="grid"></div>
+                <button class="btn primary wide spaced" id="saveProfile">Profil speichern</button>
+                <p id="profileSaved" class="small" role="status"></p>
+            </details>
             <div class="card">
                 <h3>Dein Protein-Tagesziel</h3>
                 <div class="row"><input class="input" style="max-width:140px" id="goalInput" type="number" min="50"
@@ -187,7 +225,7 @@
                     Keine Registrierung, keine Übertragung an einen Server. Beim Löschen von Browser-/Website-Daten
                     können Einträge verloren gehen.</p>
                 <div class="stack"><button class="btn primary wide" id="exportData">⬇ JSON-Backup
-                        exportieren</button><button class="btn ghost wide" id="exportLegacyData">v2-Backup ohne Trainingsentwürfe</button><label for="importFile">Backup wiederherstellen (JSON)</label><input
+                        exportieren</button><button class="btn ghost wide" id="exportLegacyData">v2-Backup ohne Pläne und Entwürfe</button><label for="importFile">Backup wiederherstellen (JSON)</label><input
                         class="input" type="file" id="importFile" accept="application/json,.json"><button
                         class="btn ghost wide hidden" id="exportPrevious">Sicherung vor dem letzten Import herunterladen</button><button
                         class="btn ghost wide hidden" id="exportMigration">Ursprünglichen Datenstand herunterladen</button><button
@@ -195,7 +233,7 @@
                         class="btn danger wide" id="clearData">Alle lokalen Daten löschen</button></div>
                 <p class="small">Beim Import werden deine bisherigen Daten nach Bestätigung ersetzt. Vorher wird der
                     Originalstand auf diesem Gerät gesichert. Du kannst diese Sicherung anschließend herunterladen.</p>
-                <p class="small">Vollständige Backups enthalten auch laufende Trainingsentwürfe und den Pausentimer.
+                <p class="small">Vollständige Backups enthalten auch Profil, Pläne, Trainingszuordnungen, offene Entwürfe und den Pausentimer.
                     Ältere v2-Backups bleiben importierbar. Deine Daten werden weiterhin nur auf diesem Gerät gespeichert.</p>
             </div>
             <div class="card">

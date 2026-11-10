@@ -1,21 +1,26 @@
 import { validateData } from '../domain/validation.js';
 import { emptyTraining, validateTraining } from '../domain/training-state.js';
+import { emptyProgram } from '../domain/program.js';
+import { validateProgram } from '../domain/program-validation.js';
 
-export function serializeBackup(data, exportedAt = new Date().toISOString(), training) {
-    const backup = { app: 'Vegan Strength', version: training === undefined ? 2 : 3, exportedAt, ...validateData(data) };
-    if (training !== undefined) backup.training = validateTraining(training);
+export function serializeBackup(data, exportedAt = new Date().toISOString(), training, program) {
+    const backup = { app: 'Vegan Strength', version: program !== undefined ? 4 : training === undefined ? 2 : 3, exportedAt, ...validateData(data) };
+    if (training !== undefined || program !== undefined) backup.training = validateTraining(training);
+    if (program !== undefined) backup.program = validateProgram(program, data, training);
     return JSON.stringify(backup, null, 2);
 }
 
 export async function readBackup(file) {
     if (file.size > 15 * 1024 * 1024) throw Error('Datei zu groß (maximal 15 MiB).');
     const value = JSON.parse(await file.text());
-    if (value?.version === 3) {
-        const { training, ...legacy } = value;
+    if (value?.version === 3 || value?.version === 4) {
+        const { training, program, ...legacy } = value;
+        if (value.version === 3 && Object.prototype.hasOwnProperty.call(value, 'program')) throw Error('Ein v3-Backup darf keinen Planbestand enthalten.');
         const data = validateData({ ...legacy, version: 2 });
-        return { data, training: validateTraining(training) };
+        const savedTraining = validateTraining(training);
+        return { data, training: savedTraining, program: validateProgram(value.version === 4 ? program : emptyProgram(), data, savedTraining) };
     }
-    return { data: validateData(value), training: emptyTraining() };
+    return { data: validateData(value), training: emptyTraining(), program: emptyProgram() };
 }
 
 export function createDownloader(environment) {

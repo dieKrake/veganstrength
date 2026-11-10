@@ -3,7 +3,7 @@ import { emptyData } from '../domain/validation.js';
 import { readBackup, serializeBackup } from '../services/backup.js';
 import { fmt } from '../ui/format.js';
 
-export function createSettings({ $, getData, setData, repository, persist, runAction, refresh, environment, download }, training, timer) {
+export function createSettings({ $, getData, setData, getProgram, setProgram, repository, persist, runAction, refresh, environment, download }, training, timer) {
     let statusRevision = 0;
     async function renderStatus() {
         const revision = ++statusRevision;
@@ -37,7 +37,7 @@ export function createSettings({ $, getData, setData, repository, persist, runAc
             environment.alert('Die Daten sind nicht geladen. Bitte lade stattdessen die Originaldaten herunter.');
             return;
         }
-        download(serializeBackup(getData(), undefined, training.snapshot()), `vegan-strength-backup-${today()}.json`);
+        download(serializeBackup(getData(), undefined, training.snapshot(), getProgram()), `vegan-strength-backup-${today()}.json`);
     });
     $('exportLegacyData').onclick = () => runAction(() => {
         if (!repository.loaded) return environment.alert('Die Daten sind nicht geladen. Bitte zuerst Originaldaten sichern.');
@@ -68,7 +68,7 @@ export function createSettings({ $, getData, setData, repository, persist, runAc
     $('retryStorage').onclick = () => runAction(async () => {
         training.pauseAutosave();
         const loaded = await repository.load();
-        if (loaded) setData(loaded);
+        if (loaded) { setData(loaded); setProgram(await repository.loadProgram()); }
         await renderStatus();
         refresh();
     });
@@ -77,13 +77,13 @@ export function createSettings({ $, getData, setData, repository, persist, runAc
         if (!file) return Promise.resolve();
         return runAction(async () => {
             try {
-                const { data: incoming, training: incomingTraining } = await readBackup(file), data = getData();
+                const { data: incoming, training: incomingTraining, program: incomingProgram } = await readBackup(file), data = getData();
                 const existing = repository.loaded
                     ? `${data.entries.length} Lebensmitteleinträge und ${data.sessions.length} Trainings`
                     : 'der bisherige, nicht geladene Originalstand';
                 const message = `Backup wiederherstellen?\n\n${incoming.entries.length} Lebensmitteleinträge\n${incoming.sessions.length} Trainings\nProteinziel: ${fmt(incoming.goal)} g\n\nErsetzt werden: ${existing}.\nVor dem Ersetzen wird der bisherige Originalstand auf diesem Gerät gesichert. Du kannst ihn anschließend unter „Mehr“ herunterladen.`;
                 if (!environment.confirm(message)) return;
-                if (!await persist(() => incoming, { replacement: true, training: incomingTraining, previousTraining: training.snapshot() })) return;
+                if (!await persist(() => incoming, { replacement: true, training: incomingTraining, program: incomingProgram, previousProgram: getProgram(), previousTraining: training.snapshot() })) return;
                 training.restore(incomingTraining);
                 refresh();
                 environment.alert('Backup importiert. Eine vorhandene Sicherung vor dem Import kannst du unter „Mehr“ herunterladen.');

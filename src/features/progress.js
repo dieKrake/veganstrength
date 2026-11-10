@@ -1,7 +1,8 @@
 import { completedSets, proteinSeries } from '../domain/statistics.js';
 import { escapeHtml, fmt } from '../ui/format.js';
+import { activePlan } from '../domain/program.js';
 
-export function createProgress({ $, getData, environment }) {
+export function createProgress({ $, getData, getProgram, environment }) {
     return {
         render() {
             const data = getData(), { dates, values, max, average } = proteinSeries(data);
@@ -13,6 +14,11 @@ export function createProgress({ $, getData, environment }) {
                 </div>`).join('');
             $('avgProtein').textContent = `${fmt(average)} g`;
             $('allSessions').textContent = data.sessions.length;
+            const plan = activePlan(getProgram());
+            $('planProgress').textContent = plan ? Array.from({ length: 8 }, (_, i) => {
+                const slots = plan.slots.slice(i * 4, i * 4 + 4);
+                return `Woche ${i + 1}: ${slots.filter(slot => slot.status === 'done').length}/4 abgeschlossen, ${slots.filter(slot => slot.status === 'skipped').length} übersprungen`;
+            }).join(' · ') : 'Noch kein aktiver Plan. Du kannst unter Training einen 8-Wochen-Plan starten.';
             $('history').innerHTML = data.sessions.length ? data.sessions.slice(0, 20).map(session => `
                 <div class="foodrow"><div class="grow"><strong>${escapeHtml(session.workout)}</strong>
                     <div class="small">${escapeHtml(session.date)} · ${completedSets(session)} Sätze</div></div>

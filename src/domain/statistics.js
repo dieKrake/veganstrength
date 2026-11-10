@@ -6,8 +6,9 @@ export function weeklySessions(sessions, now = new Date()) {
     const weekday = (monday.getDay() + 6) % 7;
     monday.setDate(monday.getDate() - weekday);
     monday.setHours(0, 0, 0, 0);
-    // Preserve the existing weekly counter in this architecture-only stage.
-    return sessions.filter(session => new Date(session.date + 'T12:00:00') >= monday).length;
+    const end = new Date(monday);
+    end.setDate(end.getDate() + 7);
+    return sessions.filter(session => { const date = new Date(session.date + 'T12:00:00'); return date >= monday && date < end; }).length;
 }
 
 export function proteinSeries(data, now = new Date()) {

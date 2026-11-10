@@ -98,14 +98,14 @@ test('failed workout transaction preserves both the confirmed draft and the old 
     restarted.close();
 });
 
-test('full v3 backups restore entries, history, drafts, selection and timer while v2 stays importable', async () => {
+test('full backups restore entries, history, drafts, selection and timer while v2 stays importable', async () => {
     const indexedDB = new IDBFactory(), storage = new Storage(JSON.stringify(state(fixture)));
     const source = await app(storage, { indexedDB });
     await source.checkSet('3', '0');
     await source.idle();
     await source.element('exportData').click();
     const backup = JSON.parse(await source.downloads[0].blob.text());
-    assert.equal(backup.version, 3);
+    assert.equal(backup.version, 4);
     assert.equal(backup.training.drafts['0'].exercises[0].sets[0].reps, '3');
     assert.ok(backup.training.timer.endAt > Date.now());
     const targetDB = new IDBFactory(), targetStorage = new Storage();
@@ -124,7 +124,7 @@ test('full v3 backups restore entries, history, drafts, selection and timer whil
     source.close(); restored.close();
 });
 
-test('v3 draft corruption is rejected before confirmation without changing the active database', async () => {
+test('draft corruption is rejected before confirmation without changing the active database', async () => {
     const indexedDB = new IDBFactory(), ui = await app(new Storage(), { indexedDB });
     await ui.checkSet('3', '0');
     await ui.element('exportData').click();
@@ -225,7 +225,7 @@ test('the pre-import backup includes live inputs even before the autosave deboun
     await ui.import(fixture);
     await ui.element('exportPrevious').click();
     const previous = JSON.parse(await ui.downloads[0].blob.text());
-    assert.equal(previous.version, 3);
+    assert.equal(previous.version, 4);
     assert.equal(previous.training.drafts['0'].exercises[0].sets[0].reps, '3');
     assert.equal(previous.training.drafts['0'].exercises[0].sets[0].done, true);
     await ui.idle();

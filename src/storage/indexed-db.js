@@ -1,11 +1,13 @@
+import { emptyProgram } from '../domain/program.js';
+import { validateProgram } from '../domain/program-validation.js';
 import { emptyData, validateData } from '../domain/validation.js';
 import { emptyTraining, validateTraining } from '../domain/training-state.js';
 import { KEY, RECOVERY_KEY } from './local-storage.js';
 
 export const DB_NAME = 'vegan-strength';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 export const MARKER_KEY = 'vegan-strength-storage';
-const STORES = ['settings', 'entries', 'sessions', 'drafts', 'meta', 'recovery'];
+const STORES = ['settings', 'entries', 'sessions', 'drafts', 'meta', 'recovery', 'plans'];
 const request = value => {
     const result = new Promise((resolve, reject) => {
         value.onsuccess = () => resolve(value.result);
@@ -15,17 +17,17 @@ const request = value => {
     return result;
 };
 const conflict = () => Error('Die Daten wurden in einem anderen Fenster geändert. Bitte gespeicherte Daten erneut laden; deine Trainingseingaben bleiben dabei erhalten.');
-const fullText = (data, training) => JSON.stringify({ app: 'Vegan Strength', version: 3, ...data, training });
+const fullText = (data, training, program) => JSON.stringify({ app: 'Vegan Strength', version: 4, ...data, training, program });
 
 export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = () => {} }) {
-    let db = null, current = null, training = emptyTraining(), revision = null, raw = null, problem = null;
+    let db = null, current = null, training = emptyTraining(), program = emptyProgram(), revision = null, raw = null, problem = null;
     let legacy = null, readable = false, active = false, databaseRaw = null;
 
     async function open() {
         if (db) return;
         if (!indexedDB) throw Error('Der Gerätespeicher ist nicht verfügbar. Bitte Speicherzugriff erlauben oder ein Backup auf einem unterstützten Browser wiederherstellen.');
         db = await new Promise((resolve, reject) => {
-            let rejected = false;
+            let rejected = false, upgradeFailure = null;
             const opening = indexedDB.open(DB_NAME, DB_VERSION);
             opening.onupgradeneeded = () => {
                 const database = opening.result;
@@ -36,9 +38,21 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
                         if (name === 'sessions') store.createIndex('workout', 'workout');
                     }
                 }
+                const tx = opening.transaction;
+                const previous = tx.objectStore('meta').get('state');
+                previous.onsuccess = () => {
+                    try {
+                        const state = previous.result;
+                        if (!state) return;
+                        if (state.schema !== 1) throw Error('Unbekanntes Schema; Speicheraktualisierung abgebrochen.');
+                        // The upgrade transaction preserves all old rows and drafts.
+                        tx.objectStore('plans').put({ id: 'active', value: emptyProgram() });
+                        tx.objectStore('meta').put({ ...state, schema: 2, revision: state.revision + 1 });
+                    } catch (error) { upgradeFailure = error; tx.abort(); }
+                };
             };
             opening.onblocked = () => { rejected = true; reject(Error('Ein anderes App-Fenster blockiert die Speicheraktualisierung. Bitte andere Fenster schließen und erneut laden.')); };
-            opening.onerror = () => reject(opening.error);
+            opening.onerror = () => reject(upgradeFailure || opening.error);
             opening.onsuccess = () => {
                 if (rejected) { opening.result.close(); return; }
                 resolve(opening.result);
@@ -71,7 +85,7 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
         }
     }
     const meta = () => transaction(['meta'], 'readonly', tx => request(tx.objectStore('meta').get('state')));
-    function marker(status) { getStorage().setItem(MARKER_KEY, JSON.stringify({ engine: 'indexeddb', version: 1, status })); }
+    function marker(status) { getStorage().setItem(MARKER_KEY, JSON.stringify({ engine: 'indexeddb', version: 2, status })); }
     function legacyNow() { return getStorage().getItem(KEY); }
     function checkLegacy(expected, allowReplacement = false) {
         const latest = legacyNow();
@@ -88,26 +102,29 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
     }
     async function readAll() {
         return transaction(STORES, 'readonly', async tx => {
-            const [state, profile, entries, sessions, draft] = await Promise.all([
+            const [state, profile, entries, sessions, draft, planRecord] = await Promise.all([
                 request(tx.objectStore('meta').get('state')),
                 request(tx.objectStore('settings').get('profile')),
                 request(tx.objectStore('entries').getAll()),
                 request(tx.objectStore('sessions').getAll()),
-                request(tx.objectStore('drafts').get('active'))
+                request(tx.objectStore('drafts').get('active')),
+                request(tx.objectStore('plans').get('active'))
             ]);
             // Keep a downloadable dump even if validation or ordering fails.
-            raw = fullText({ goal: profile?.goal, entries, sessions }, draft?.value);
+            raw = fullText({ goal: profile?.goal, entries, sessions }, draft?.value, planRecord?.value);
             const data = validateData({ goal: profile?.goal, entries: ordered(entries), sessions: ordered(sessions) });
             const draftState = validateTraining(draft?.value);
-            return { state, data, training: draftState };
+            const planState = validateProgram(planRecord?.value, data, draftState);
+            return { state, data, training: draftState, program: planState };
         });
     }
-    function putData(tx, data, draftState) {
+    function putData(tx, data, draftState, planState = emptyProgram()) {
         for (const name of ['settings', 'entries', 'sessions', 'drafts']) tx.objectStore(name).clear();
         tx.objectStore('settings').put({ id: 'profile', goal: data.goal });
         data.entries.forEach((entry, order) => tx.objectStore('entries').put({ ...entry, order }));
         data.sessions.forEach((session, order) => tx.objectStore('sessions').put({ ...session, order }));
         tx.objectStore('drafts').put({ id: 'active', value: draftState });
+        tx.objectStore('plans').put({ id: 'active', value: planState });
     }
     async function finishClear() {
         const storage = getStorage();
@@ -132,11 +149,11 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
                 if (await request(store.get('state'))) return;
                 tx.objectStore('recovery').put({ id: 'migration', raw: source, previous });
                 if (previous !== null) tx.objectStore('recovery').put({ id: 'before-import', raw: previous });
-                store.put({ id: 'state', schema: 1, phase: 'pending', revision: 0, legacyRaw: source });
+                store.put({ id: 'state', schema: 2, phase: 'pending', revision: 0, legacyRaw: source });
             });
             state = await meta();
         }
-        if (state.schema !== 1 || !Number.isSafeInteger(state.revision) || state.revision < 0
+        if (state.schema !== 2 || !Number.isSafeInteger(state.revision) || state.revision < 0
             || !(state.legacyRaw === null || typeof state.legacyRaw === 'string')) throw Error('Unbekanntes oder beschädigtes Speicherformat. Bitte Originaldaten sichern.');
         revision = state.revision;
         if (state.phase === 'ready') return;
@@ -174,7 +191,7 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
             const savedMarker = getStorage().getItem(MARKER_KEY);
             if (savedMarker !== null) {
                 const value = JSON.parse(savedMarker);
-                if (value?.engine !== 'indexeddb' || value.version !== 1 || !['active', 'cleared'].includes(value.status)) {
+                if (value?.engine !== 'indexeddb' || ![1, 2].includes(value.version) || !['active', 'cleared'].includes(value.status)) {
                     throw Error('Unbekannte Speicherversion. Bitte die passende App-Version verwenden.');
                 }
             }
@@ -186,20 +203,23 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
             legacy = result.state.legacyRaw;
             current = result.data;
             training = result.training;
+            program = result.program;
             checkLegacy(result.state.legacyRaw);
             marker('active');
             active = true;
-            raw = fullText(current, training);
+            raw = fullText(current, training, program);
             databaseRaw = raw;
             problem = null;
             return structuredClone(current);
         } catch (error) { problem = error; return current ? structuredClone(current) : null; }
     }
-    async function write(candidate, { replacement = false, training: draftState, previousTraining, allowReset = false } = {}) {
+    async function write(candidate, { replacement = false, training: draftState, previousTraining, program: planState, previousProgram, allowReset = false } = {}) {
         if (allowReset) return clear();
         try {
             if (!db || !readable || (!active && !replacement)) throw Error('Der Gerätespeicher ist nicht geladen. Bitte Originaldaten sichern und erneut laden oder ein Backup wiederherstellen.');
             const next = validateData(candidate), nextTraining = validateTraining(draftState ?? training);
+            const nextProgram = validateProgram(planState ?? program, next, nextTraining);
+            const priorProgram = replacement ? validateProgram(previousProgram ?? program, current ?? next, previousTraining ?? training) : null;
             const priorTraining = replacement ? validateTraining(previousTraining ?? training) : null;
             const latestLegacy = checkLegacy(legacy, replacement);
             const expectedRevision = revision;
@@ -207,11 +227,11 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
                 const store = tx.objectStore('meta'), latest = await request(store.get('state'));
                 if ((latest?.revision ?? null) !== expectedRevision) throw conflict();
                 if (replacement) {
-                    tx.objectStore('recovery').put({ id: 'before-import', raw: current ? fullText(current, priorTraining) : raw });
+                    tx.objectStore('recovery').put({ id: 'before-import', raw: current ? fullText(current, priorTraining, priorProgram) : raw });
                     if (latestLegacy !== legacy) tx.objectStore('recovery').put({ id: 'legacy-conflict', raw: latestLegacy });
                 } else if (latest.phase !== 'ready') throw Error('Die Datenübernahme ist noch nicht abgeschlossen.');
-                putData(tx, next, nextTraining);
-                const updated = { id: 'state', schema: 1, phase: 'ready', revision: (latest?.revision ?? 0) + 1, legacyRaw: latestLegacy };
+                putData(tx, next, nextTraining, nextProgram);
+                const updated = { id: 'state', schema: 2, phase: 'ready', revision: (latest?.revision ?? 0) + 1, legacyRaw: latestLegacy };
                 store.put(updated);
                 return updated.revision;
             });
@@ -225,8 +245,9 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
             legacy = latestLegacy;
             current = next;
             training = nextTraining;
+            program = nextProgram;
             active = true;
-            raw = fullText(current, training);
+            raw = fullText(current, training, program);
             databaseRaw = raw;
             problem = null;
             return structuredClone(current);
@@ -236,6 +257,7 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
         try {
             if (!db || !active) throw Error('Der Gerätespeicher ist nicht geladen.');
             const next = validateTraining(candidate);
+            validateProgram(program, current, next);
             checkLegacy(legacy);
             const expectedRevision = revision;
             const nextRevision = await transaction(['meta', 'drafts'], 'readwrite', async tx => {
@@ -247,7 +269,7 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
             });
             revision = nextRevision;
             training = next;
-            raw = fullText(current, training);
+            raw = fullText(current, training, program);
             databaseRaw = raw;
             problem = null;
             return true;
@@ -267,7 +289,7 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
                 if ((latest?.revision ?? null) !== expectedRevision) throw conflict();
                 putData(tx, emptyData(), emptyTraining());
                 tx.objectStore('recovery').clear();
-                tx.objectStore('meta').put({ id: 'state', schema: 1, phase: 'clearing', revision: (latest?.revision ?? 0) + 1, legacyRaw: null });
+                tx.objectStore('meta').put({ id: 'state', schema: 2, phase: 'clearing', revision: (latest?.revision ?? 0) + 1, legacyRaw: null });
                 return (latest?.revision ?? 0) + 1;
             });
             revision = nextRevision;
@@ -276,8 +298,9 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
             legacy = null;
             current = emptyData();
             training = emptyTraining();
+            program = emptyProgram();
             active = true;
-            raw = fullText(current, training);
+            raw = fullText(current, training, program);
             databaseRaw = raw;
             problem = null;
             return structuredClone(current);
@@ -292,6 +315,8 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
     }
     return {
         load, write, saveTraining, clear,
+        async loadProgram() { return structuredClone(program); },
+        async saveProgram(candidate) { await write(current, { program: candidate }); return structuredClone(program); },
         async loadTraining() { if (!current) return emptyTraining(); return structuredClone(training); },
         previous: () => recovery('before-import'),
         migration: () => recovery('migration'),
