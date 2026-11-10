@@ -182,6 +182,23 @@
                     <div class="small">Protein Ø letzte 7 Tage</div><strong id="avgProtein">0 g</strong>
                 </div>
             </div>
+            <div class="card">
+                <h3>Kraftverlauf</h3>
+                <label for="strengthExercise">Übung und Variante</label><select class="input" id="strengthExercise"></select>
+                <p id="strengthEmpty" class="small muted">Noch keine gespeicherten Trainings. Nach deinem ersten Workout erscheinen hier die erfassten Übungen.</p>
+                <div id="strengthContent" class="hidden">
+                    <details class="spaced"><summary>Zeitraum, Last und Auswertung wählen</summary><div class="stack spaced">
+                    <label for="strengthRange">Trainingszeitraum</label><select class="input" id="strengthRange"><option value="56">Letzte 56 Tage</option><option value="112">Letzte 112 Tage</option><option value="all">Alle gespeicherten Trainings</option></select>
+                    <label for="strengthMetric">Auswertung</label><select class="input" id="strengthMetric"><option value="reps">Wiederholungen / Sekunden bei gleicher Last</option><option value="load">Höchste Last je Training mit Wiederholungen</option></select>
+                    <label for="strengthLoad">Vergleichslast</label><select class="input" id="strengthLoad"></select>
+                    </div></details>
+                    <p id="strengthNote" class="small notice"></p><p id="strengthMethod" class="small"></p>
+                    <div id="strengthChart"></div><p id="strengthSummary" class="small" role="status"></p>
+                    <details><summary>Alle Kraftwerte als Tabelle</summary><div id="strengthTable" class="data-table"></div>
+                        <div class="row spaced"><button class="btn ghost" id="strengthTablePrevious">← Zurück</button><span class="small" id="strengthTableStatus" role="status"></span><button class="btn ghost" id="strengthTableNext">Weiter →</button></div>
+                    </details>
+                </div>
+            </div>
             <div class="card spaced">
                 <h3 id="nutritionChartTitle">Protein – letzte 7 Tage</h3>
                 <label for="nutritionRange">Zeitraum</label><select class="input" id="nutritionRange"><option value="7">7 Tage</option><option value="28">28 Tage</option><option value="56">56 Tage</option></select>
@@ -191,8 +208,17 @@
                 <details><summary>Alle Tageswerte als Tabelle</summary><div id="nutritionTable" class="nutrition-table"></div></details>
             </div>
             <div class="card">
-                <h3>Letzte Trainings</h3>
-                <div id="history"></div>
+                <h3>Alle Trainings</h3>
+                <details><summary>Historie filtern</summary><div class="stack spaced">
+                    <label for="historyWorkout">Workout</label><select class="input" id="historyWorkout"></select>
+                    <div class="grid"><div><label for="historyFrom">Von (einschließlich)</label><input class="input" id="historyFrom" type="date"></div><div><label for="historyTo">Bis (einschließlich)</label><input class="input" id="historyTo" type="date"></div></div>
+                    <button class="btn ghost" id="applyHistoryFilter">Filter anwenden</button><button class="btn ghost" id="resetHistoryFilter">Alle Trainings anzeigen</button>
+                </div></details>
+                <p id="historyStatus" class="small" role="status" aria-live="polite"></p><div id="history"></div>
+                <div class="row"><button class="btn ghost" id="historyPrevious">← Neuere</button><button class="btn ghost" id="historyNext">Ältere →</button></div>
+                <div id="sessionDetail" class="hidden session-detail" role="region" aria-labelledby="sessionDetailTitle" tabindex="-1">
+                    <h3 id="sessionDetailTitle"></h3><div id="sessionDetailBody"></div><button class="btn ghost wide" id="closeSessionDetail">Details schließen</button>
+                </div>
             </div>
             <div class="card">
                 <h3>8-Wochen-Progression</h3>
@@ -256,6 +282,9 @@
                     die App-Dateien offline verfügbar.</p><button class="btn ghost wide hidden" id="installBtn">App
                     installieren</button>
                 <p class="small" id="swStatus">Offline-Modus wird geprüft …</p>
+                <button class="btn ghost wide" id="checkUpdate">Auf Update prüfen</button>
+                <p class="small" id="updateStatus" role="status" aria-live="polite"></p>
+                <button class="btn primary wide hidden" id="prepareUpdate">Trainingsentwurf sichern und Update vorbereiten</button>
             </div>
         </section>
     </main>

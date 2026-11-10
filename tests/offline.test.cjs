@@ -62,6 +62,12 @@ function worker({ unavailable } = {}) {
             handlers.get('install')({ waitUntil: value => { promise = value; } });
             await promise;
         },
+        async health() {
+            let promise, result;
+            handlers.get('message')({ data: { type: 'CHECK_OFFLINE' }, ports: [{ postMessage: value => { result = value; } }], waitUntil: value => { promise = value; } });
+            await promise;
+            return result;
+        },
         fetch(asset, { method = 'GET', mode = 'cors' } = {}) {
             let response;
             handlers.get('fetch')({
@@ -140,4 +146,17 @@ test('unrelated origins, paths and mutating requests are not intercepted', async
     assert.equal(sw.fetch('https://other.test/index.html'), undefined);
     assert.equal(sw.fetch('https://example.test/another-app/index.html'), undefined);
     assert.equal(sw.fetch('./index.html', { method: 'POST' }), undefined);
+});
+
+
+test('offline readiness checks every cached asset and detects eviction without relying on registration', async () => {
+    const sw = worker();
+    assert.equal((await sw.health()).complete, false);
+    await sw.install(); sw.offline();
+    const ready = await sw.health();
+    assert.equal(ready.complete, true);
+    assert.equal('vegan-strength-v' + ready.version, sw.release);
+    sw.buckets.get(sw.release).delete(urlOf('./src/domain/strength.js'));
+    assert.equal((await sw.health()).complete, false);
+    assert.equal(sw.networkRequests.length, 0);
 });

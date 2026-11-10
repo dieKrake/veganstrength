@@ -1,8 +1,13 @@
-import { completedSets, proteinSeries, nutritionSeries } from '../domain/statistics.js';
-import { escapeHtml, fmt } from '../ui/format.js';
+import { createHistory } from './history.js';
+import { createStrength } from './strength.js';
+import { proteinSeries, nutritionSeries } from '../domain/statistics.js';
+import { fmt } from '../ui/format.js';
 import { activePlan } from '../domain/program.js';
 
-export function createProgress({ $, getData, getProgram, getNutrition, environment }) {
+export function createProgress(context) {
+    const { $, getData, getProgram, getNutrition } = context;
+    const history = createHistory(context);
+    const strength = createStrength(context, history.showSession);
     $('nutritionRange').value = '7';
     $('nutritionRange').onchange = render;
     function render() {
@@ -28,18 +33,8 @@ export function createProgress({ $, getData, getProgram, getNutrition, environme
             const slots = plan.slots.slice(i * 4, i * 4 + 4);
             return `Woche ${i + 1}: ${slots.filter(slot => slot.status === 'done').length}/4 abgeschlossen, ${slots.filter(slot => slot.status === 'skipped').length} übersprungen`;
         }).join(' · ') : 'Noch kein aktiver Plan. Du kannst unter Training einen 8-Wochen-Plan starten.';
-        $('history').innerHTML = data.sessions.length ? data.sessions.slice(0, 20).map(session => `
-            <div class="foodrow"><div class="grow"><strong>${escapeHtml(session.workout)}</strong>
-                <div class="small">${escapeHtml(session.date)} · ${completedSets(session)} Sätze</div></div>
-                <button class="btn ghost" data-detail="${escapeHtml(session.id)}">Details</button>
-            </div>`).join('') : '<p class="small muted">Noch kein Workout gespeichert.</p>';
-        $('history').querySelectorAll('[data-detail]').forEach(button => {
-            button.onclick = () => {
-                const session = getData().sessions.find(item => item.id === button.dataset.detail);
-                if (session) environment.alert(`${session.workout} · ${session.date}\n\n` + session.exercises.map(exercise =>
-                    exercise.name + ': ' + exercise.sets.filter(set => set.done).map(set => set.reps + ' Wdh., ' + set.kg + ' kg').join(' / ')).join('\n'));
-            };
-        });
+        strength.render();
+        return history.render();
     }
-    return { render };
+    return { render, whenIdle: history.whenIdle };
 }

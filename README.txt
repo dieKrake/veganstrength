@@ -14,7 +14,7 @@ Daten: ausschließlich im lokalen Browser-Speicher (IndexedDB). Vorhandene v2-Da
 
 WICHTIG: Für Android-PWA-Funktionalität ist HTTPS oder localhost notwendig. Zum Aktualisieren alle geöffneten Tabs bzw. Fenster der App schließen und anschließend erneut öffnen. Eine neue Version aktiviert sich erst nach dem Schließen der bisherigen Version.
 
-DATENSICHERHEIT UND WIEDERAUFNAHME (Etappe 5)
+DATENSICHERHEIT UND WIEDERAUFNAHME (Etappe 6)
 - Datenbank: vegan-strength, Version 3. Eigene Lebensmittel, Settings, Lebensmitteleinträge, Trainings, Entwürfe, Pläne, Migrationszustand und Wiederherstellungskopien liegen in getrennten Stores. Vorhandene Datenbankbestände der Versionen 1 und 2 werden transaktional erweitert; alte Einträge, Entwürfe und Sicherungen bleiben erhalten.
 - Bei der ersten Übernahme wird der bisherige Rohstand unverändert in der Datenbank gesichert. Erst danach wird er validiert, transaktional übernommen und zurückgelesen. IDs, Reihenfolge, Werte und Proteinberechnung bleiben erhalten.
 - Die alten Schlüssel vegan-strength-v2 und vegan-strength-v2-before-import bleiben zunächst als Originalkopien erhalten. Nach erfolgreicher Umstellung werden sie nicht mehr parallel beschrieben und nicht bei jedem Start erneut importiert. Der Vermerk vegan-strength-storage verhindert eine versehentliche erneute Übernahme, falls ein früher aktiver Datenbankbestand fehlt.
@@ -49,13 +49,13 @@ Alternativ: node --test --test-isolation=none --test-reporter=spec tests/*.test.
 
 Die Tests führen die echten Anwendungsmodule mit synthetischem Speicher und einem kleinen DOM-Ersatz aus. Zusätzliche Service-Worker-Tests prüfen den vollständigen Modul-Cache und Offline-Antworten, auch bei Hosting in einem Unterverzeichnis. IndexedDB- und Migrationstests verwenden fake-indexeddb als reine Entwicklungsabhängigkeit. Sie ersetzen keine Android-Gerätetests. Die Fixture tests/fixtures/v2.json enthält ausschließlich erfundene Testdaten.
 
-ARCHITEKTUR (Etappe 5)
+ARCHITEKTUR (Etappe 6)
 - index.html enthält die Oberfläche, styles/app.css das bisherige Design und src/main.js den Einstiegspunkt.
 - src/features/ enthält die Ansichten und ihre Bedienlogik; src/domain/ enthält Berechnungen und Validierung ohne DOM- oder Datenbankzugriff.
 - src/storage/repository.js bietet die asynchrone Speicherschnittstelle. Dahinter arbeitet jetzt der IndexedDB-Adapter; der alte Adapter bleibt für Kompatibilitätstests erhalten. Schreibaktionen werden innerhalb einer App-Instanz nacheinander verarbeitet.
 - Timer, JSON-Backup und PWA-Integration liegen in src/services/. Die Navigation aktualisiert die jeweils betroffene Ansicht; bestehende Trainingsfelder bleiben bei fachfremden Änderungen bestehen.
-- sw.js speichert das komplette Release unter vegan-strength-v2.4.2. Bei neuen Laufzeitdateien muss die Asset-Liste erweitert und bei veröffentlichten Änderungen die Cache-Version angehoben werden. Die Tests melden fehlende Module im Offline-Cache.
-- package.json stellt den Testbefehl und den JavaScript-Modultyp bereit. Nur die Tests benötigen fake-indexeddb; die ausgelieferte PWA hat weiterhin keine npm-Laufzeitabhängigkeiten. App-/Cache-Version 2.4.2, Datenbankversion 3 und Backup-Version 5 sind unabhängig.
+- sw.js speichert das komplette Release unter vegan-strength-v2.5.1. Bei neuen Laufzeitdateien muss die Asset-Liste erweitert und bei veröffentlichten Änderungen die Cache-Version angehoben werden. Die Tests melden fehlende Module im Offline-Cache.
+- package.json stellt den Testbefehl und den JavaScript-Modultyp bereit. Nur die Tests benötigen fake-indexeddb; die ausgelieferte PWA hat weiterhin keine npm-Laufzeitabhängigkeiten. App-/Cache-Version 2.5.1, Datenbankversion 3 und Backup-Version 5 sind unabhängig.
 - Weitere Hinweise zur Struktur, zur Migration und zum Backup-Format stehen in docs/ARCHITEKTUR.md.
 
 LEBENSMITTEL UND ERNÄHRUNGSVERLAUF
@@ -72,3 +72,23 @@ PRÜFSTAND ETAPPE 5 – 10. NOVEMBER 2026
 Im lokalen Browser wurde der vorhandene synthetische Datenbankbestand erweitert, ohne Plan oder Entwürfe zu verlieren. Ein Produkt wurde gespeichert und geändert; die frühere Portion behielt ihren Nährwert. Ein v5-Download wurde auf einer separaten leeren Testadresse wiederhergestellt. Nach Abschalten des Servers startete ein neuer Tab mit dem vollständigen Bestand. Der dort offline erneut exportierte Bestand stimmt einschließlich Plan, beiden Entwürfen, Produkten, Portionseinheiten und Zielhistorie exakt mit dem importierten Backup überein (abgesehen vom Exportzeitstempel).
 Die manuellen Browser-Abläufe wurden mit 2.4.1 geprüft. 2.4.2 ergänzt einen automatisiert geprüften Wiederherstellungsfall nach fehlerhaftem Neuladen sowie die neue Cache-Version.
 Die echte Android-Geräteabnahme mit Installation, Flugmodus, System-Dateiauswahl und Prozessneustart bleibt offen. Kraftdiagramme folgen in Etappe 6.
+
+KRAFTVERLAUF UND VOLLSTÄNDIGE HISTORIE (Etappe 6)
+- Unter Verlauf zuerst die Übung auswählen. Bestätigte Planvarianten bleiben getrennt von freien/älteren Daten. Verschiedene Ringwinkel oder Gewichtsbedeutungen werden nicht vermischt.
+- „Zeitraum, Last und Auswertung wählen“ bietet 56 Tage, 112 Tage oder alle gespeicherten Trainings. Standard ist der beste abgehakte Satz je Training bei derselben ausgewählten Last. Sekunden bleiben Sekunden; Werte je Seite/Bein und kg pro Hantel werden nicht verdoppelt.
+- „Höchste Last je Training mit Wiederholungen“ zeigt die Last und die Wiederholungen desselben tatsächlichen Satzes. Eine höhere Last allein ist keine gesicherte Kraftsteigerung. Es gibt keine geschätzte gemeinsame Kraftkennzahl.
+- Das Diagramm zeigt bis zu 120 letzte Werte. Alle Werte der Auswahl sind in der blätterbaren Tabelle erreichbar; jede Zeile öffnet das zugehörige Training. Fehlende Trainingstage erhalten keine erfundenen Nullwerte.
+- Alte Übungsnamen werden nur zur Bestimmung einer eindeutigen bekannten Einheit genutzt. Unbestätigte Varianten bleiben getrennt und erhalten Punkte ohne Verbindungslinie; bei unbekannter Einheit gibt es nur die Tabelle. Alte kg bleiben ausdrücklich „wie erfasst“.
+- „Alle Trainings“ bietet Seiten mit je 20 Einheiten, einen Workout-Filter sowie ein einschließliches Von-/Bis-Datum. Die Liste verwendet den vorhandenen Datumsindex der Datenbank. Sortierung: Datum absteigend, bei gleichem Tag ID absteigend. Gespeicherte Reihenfolge und Backups bleiben unverändert.
+- Details zeigen alle Sätze mit ursprünglichen Werten und Status, auch nicht abgehakte. Plantrainings zeigen zusätzlich bekannte Gewichtsbedeutung, Ausführungsbewertung und Reserve.
+
+UPDATES UND OFFLINE-STATUS
+- Unter Mehr > Android-Installation prüft die App per Nachricht an den aktiven Service Worker alle Dateien seines eigenen Release-Caches. Eine erfolgreiche Registrierung allein bestätigt keinen Offline-Start. Ältere Worker ohne diese Antwort bleiben „noch nicht bestätigt“.
+- „Auf Update prüfen“ sucht online nach einem Release. Eine neue Version wird erst angeboten, wenn sie vollständig installiert ist. Bei fehlendem Netz bleibt die vorhandene App bedienbar.
+- „Trainingsentwurf sichern und Update vorbereiten“ wartet auf die bestätigte Entwurfsspeicherung und laufende Schreibaktionen. Bei Speicherfehlern bleibt die App geöffnet. Nach Erfolg alle App-Tabs und App-Fenster schließen und erneut öffnen. Es gibt kein erzwungenes Neuladen während des Trainings.
+- Noch nicht gespeicherte Profil- oder Lebensmittelfelder vor dem Schließen übernehmen. Der Trainingsentwurf wird automatisch gesichert, diese Formulare sind keine Trainingsentwürfe.
+
+PRÜFSTAND ETAPPE 6 – 10. NOVEMBER 2026
+153 automatisierte Tests bestehen. Neue Prüfungen betreffen Vergleichbarkeit, feste Lasten, Sekunden, tatsächliche Satzpaare, Indexpaging, Datumsfilter, späte Antworten, unveränderte Backups, vollständigen Cache, Update-Hinweise und Entwurfssicherung vor Updates.
+Im Browser wurde der unveränderte ursprüngliche synthetische Bestand als v5 exportiert und mit seinem vorherigen Export verglichen. Auf einer getrennten lokalen Testadresse wurden 32 synthetische Trainings geprüft: Kraftverläufe, Lastauswahl, Tabelle, zweite Historienseite und gefilterte Trainingsdetails. Der Wechsel von 2.5.0 auf 2.5.1 erhielt eine neue Satzeingabe und die fortgeschrittene Timer-Endzeit. Bei gestopptem Server startete ein neuer Tab mit Diagrammen und vollständiger Historie; die Cache-Prüfung bestätigte Version 2.5.1, die Updatesuche meldete den erwarteten Netzfehler. Keine JavaScript-Fehler beim Offline-Ablauf.
+Datenbankversion 3 und Backup-Version 5 bleiben unverändert. Die echte Android-Geräteprüfung ist noch offen; Anleitung und Prüftabelle: docs/ANDROID-ABNAHME.md. Es wurde nichts veröffentlicht oder gepusht. Der lokale Testserver wurde für die Offline-Prüfung beendet.

@@ -1,4 +1,5 @@
 import { emptyNutrition, recordGoal, validateNutrition } from '../domain/nutrition.js';
+import { historyOptions, historyPage, sessionMatches } from '../domain/history.js';
 import { emptyProgram } from '../domain/program.js';
 import { validateProgram } from '../domain/program-validation.js';
 import { emptyData, validateData } from '../domain/validation.js';
@@ -330,8 +331,41 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
             throw error;
         }
     }
+    async function querySessions(options) {
+        const query = historyOptions(options);
+        if (!db || !active) throw Error('Die Trainingshistorie ist nicht geladen. Bitte gespeicherte Daten erneut laden.');
+        return transaction(['meta', 'sessions'], 'readonly', async tx => {
+            const state = await request(tx.objectStore('meta').get('state'));
+            if (state.phase !== 'ready' || state.revision !== revision) throw conflict();
+            const store = tx.objectStore('sessions');
+            // Old imported test databases may not have an index. Do not alter their schema here.
+            if (!store.indexNames.contains('date')) {
+                const rows = await request(store.getAll());
+                return historyPage(rows.map(({ order, ...session }) => session), query);
+            }
+            return new Promise((resolve, reject) => {
+                const sessions = [];
+                let total = 0;
+                const cursor = store.index('date').openCursor(null, 'prev');
+                cursor.onerror = () => reject(cursor.error);
+                cursor.onsuccess = () => {
+                    const row = cursor.result;
+                    if (!row || (query.from && row.key < query.from)) return resolve({ sessions, total });
+                    if (query.to && row.key > query.to) { row.continue(query.to); return; }
+                    if (sessionMatches(row.value, query)) {
+                        if (total >= query.offset && sessions.length < query.limit) {
+                            const { order, ...session } = row.value;
+                            sessions.push(session);
+                        }
+                        total++;
+                    }
+                    row.continue();
+                };
+            });
+        });
+    }
     return {
-        load, write, saveTraining, clear,
+        load, write, saveTraining, clear, querySessions,
         async loadNutrition() { return structuredClone(nutrition); },
         async saveNutrition(candidate) { await write(current, { nutrition: candidate }); return structuredClone(nutrition); },
         async loadProgram() { return structuredClone(program); },

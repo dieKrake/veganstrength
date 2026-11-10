@@ -95,7 +95,7 @@ class Element {
     remove() {}
 }
 
-async function app(storage = new Storage(), { confirm = true, beforeWrite, indexedDB, useDefaultStorage = false } = {}) {
+async function app(storage = new Storage(), { confirm = true, beforeWrite, indexedDB, useDefaultStorage = false, environmentOverrides = {} } = {}) {
     const ids = new Map([...html.matchAll(/id="([^"]+)"/g)].map(match => [match[1], new Element()]));
     for (const match of html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g)) {
         ids.get(match[1]).classList = classes(match[0].match(/class="([^"]*)"/)?.[1]);
@@ -135,6 +135,7 @@ async function app(storage = new Storage(), { confirm = true, beforeWrite, index
         Blob,
         URL: { createObjectURL(blob) { downloads.push({ blob }); return 'blob:test'; }, revokeObjectURL() {} }
     };
+    Object.assign(environment, environmentOverrides);
     const { createApp } = await import('../src/app.js');
     const { createRepository } = await import('../src/storage/repository.js');
     const { createLocalStorageStore } = await import('../src/storage/local-storage.js');

@@ -1,4 +1,4 @@
-const CACHE = 'vegan-strength-v2.4.2';
+const CACHE = 'vegan-strength-v2.5.1';
 const ASSETS = [
     "./",
     "./index.html",
@@ -11,19 +11,23 @@ const ASSETS = [
     "./src/data/foods.js",
     "./src/data/workouts.js",
     "./src/domain/dates.js",
+    "./src/domain/history.js",
     "./src/domain/nutrition.js",
     "./src/domain/program-validation.js",
     "./src/domain/program.js",
     "./src/domain/progression.js",
     "./src/domain/protein.js",
     "./src/domain/statistics.js",
+    "./src/domain/strength.js",
     "./src/domain/training-state.js",
     "./src/domain/validation.js",
     "./src/features/home.js",
+    "./src/features/history.js",
     "./src/features/plan.js",
     "./src/features/progress.js",
     "./src/features/protein.js",
     "./src/features/settings.js",
+    "./src/features/strength.js",
     "./src/features/training.js",
     "./src/main.js",
     "./src/services/backup.js",
@@ -33,9 +37,21 @@ const ASSETS = [
     "./src/storage/local-storage.js",
     "./src/storage/repository.js",
     "./src/ui/format.js",
-    "./src/ui/navigation.js"
+    "./src/ui/navigation.js",
+    "./src/ui/strength-chart.js"
 ];
 const ROOT = new URL('./', self.location.href);
+
+self.addEventListener('message', event => {
+    if (event.data?.type !== 'CHECK_OFFLINE' || !event.ports?.[0]) return;
+    event.waitUntil((async () => {
+        try {
+            const cache = await caches.open(CACHE);
+            const present = await Promise.all(ASSETS.map(asset => cache.match(new URL(asset, ROOT).href)));
+            event.ports[0].postMessage({ type: 'OFFLINE_STATUS', complete: present.every(Boolean), version: CACHE.replace('vegan-strength-v', '') });
+        } catch { event.ports[0].postMessage({ type: 'OFFLINE_STATUS', complete: false }); }
+    })());
+});
 
 self.addEventListener('install', event => {
     // A release is usable only once its complete module graph is cached.

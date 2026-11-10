@@ -83,6 +83,7 @@ export async function createApp({ environment = globalThis, repository } = {}) {
         getProgram: () => program,
         setProgram: loaded => { program = loaded; },
         getNutrition: () => nutrition,
+        querySessions: options => repository.querySessions(options, data.sessions),
         setNutrition: loaded => { nutrition = loaded; },
         persist, persistProgram, persistNutrition, runAction, repository, environment,
         storageStatus: () => settings.renderStatus(),
@@ -112,7 +113,11 @@ export async function createApp({ environment = globalThis, repository } = {}) {
     views.progress = createProgress(context);
     settings = createSettings(context, training, timer);
     views.settings = { render() { settings.render(); planFeature.renderProfile(); } };
-    initializePwa(environment);
+    const pwa = initializePwa(environment, { async prepareUpdate() {
+        await training.flush();
+        await pending;
+        return repository.loaded && !repository.problem && training.isSaved();
+    } });
     await settings.renderStatus();
     navigation.go(repository.loaded ? (Object.keys(restored.drafts).length ? 'training' : 'home') : 'settings');
     return {
@@ -120,7 +125,7 @@ export async function createApp({ environment = globalThis, repository } = {}) {
         getData: () => structuredClone(data),
         getProgram: () => structuredClone(program),
         getNutrition: () => structuredClone(nutrition),
-        async whenIdle() { await training.flush(); await pending; },
-        close() { repository.close(); }
+        async whenIdle() { await training.flush(); await pending; await views.progress.whenIdle(); },
+        close() { pwa.dispose(); repository.close(); }
     };
 }

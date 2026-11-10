@@ -395,3 +395,15 @@ summary { cursor: pointer; padding: 12px 0; min-height: 48px; font-weight: 700; 
 .nutrition-goal-mark { position: absolute; width: 100%; left: 0; border-top: 2px dashed var(--text); }
 .nutrition-table table { border-collapse: collapse; width: 100%; font-size: 13px; }
 .nutrition-table th, .nutrition-table td { text-align: left; padding: 10px 6px; border-bottom: 1px solid var(--border); }
+
+.data-table { overflow-x: auto; }
+.data-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th, .data-table td { padding: 10px 6px; text-align: left; border-bottom: 1px solid var(--border); }
+.data-table caption { text-align: left; padding: 10px 0; color: var(--muted); }
+.session-detail { margin-top: 20px; border-top: 2px solid var(--green); padding-top: 16px; }
+.session-exercise { margin: 18px 0; }
+.strength-svg { width: 100%; height: auto; display: block; margin: 16px 0; }
+.strength-svg text { fill: var(--muted); font: 17px system-ui, sans-serif; }
+.chart-grid { stroke: var(--border); stroke-width: 1; }
+.strength-line { fill: none; stroke: var(--green); stroke-width: 3; }
+.strength-dot { fill: var(--green); stroke: var(--bg); stroke-width: 1; }

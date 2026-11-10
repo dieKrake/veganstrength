@@ -5,7 +5,7 @@ export function createNavigation({ document, window, render }) {
         document.querySelectorAll('[data-tab]').forEach(button => button.classList.toggle('active', button.dataset.tab === tab));
         active = tab;
         window.scrollTo(0, 0);
-        render(tab);
+        return render(tab);
     }
     document.querySelectorAll('[data-tab]').forEach(button => { button.onclick = () => go(button.dataset.tab); });
     document.querySelectorAll('[data-go]').forEach(button => { button.onclick = () => go(button.dataset.go); });

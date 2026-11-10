@@ -262,7 +262,7 @@ test('service worker activation preserves caches belonging to other applications
         URL,
         self: { location: { href: 'https://example.test/app/sw.js' }, addEventListener: (type, handler) => handlers.set(type, handler), clients: { claim: async () => {} } },
         caches: {
-            keys: async () => ['other-app-v1', 'vegan-strength-v2.0.0', 'vegan-strength-v2.4.2'],
+            keys: async () => ['other-app-v1', 'vegan-strength-v2.0.0', 'vegan-strength-v2.5.1'],
             delete: async key => deleted.push(key)
         }
     });

@@ -251,6 +251,7 @@ export function createTraining({ $, getData, getProgram, persist, persistProgram
     };
     return {
         render, select, openSlot, snapshot, restore, flush,
+        isSaved: () => !dirty && !saving,
         pauseAutosave() {
             cancelPending(); generation++;
             if (dirty) {

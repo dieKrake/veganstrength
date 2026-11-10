@@ -1,4 +1,5 @@
 import { emptyNutrition } from '../domain/nutrition.js';
+import { historyPage } from '../domain/history.js';
 import { emptyTraining } from '../domain/training-state.js';
 import { emptyProgram } from '../domain/program.js';
 
@@ -6,6 +7,7 @@ import { emptyProgram } from '../domain/program.js';
 export function createRepository(adapter) {
     return {
         async load() { return adapter.load(); },
+        async querySessions(options, fallbackSessions) { return adapter.querySessions?.(options) ?? historyPage(fallbackSessions, options); },
         async write(candidate, options) { return adapter.write(candidate, options); },
         async previous() { return adapter.previous(); },
         async removePrevious() { return adapter.removePrevious(); },
