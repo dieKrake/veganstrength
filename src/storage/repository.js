@@ -1,3 +1,4 @@
+import { emptyNutrition } from '../domain/nutrition.js';
 import { emptyTraining } from '../domain/training-state.js';
 import { emptyProgram } from '../domain/program.js';
 
@@ -10,6 +11,8 @@ export function createRepository(adapter) {
         async removePrevious() { return adapter.removePrevious(); },
         async loadTraining() { return adapter.loadTraining?.() ?? emptyTraining(); },
         async saveTraining(value) { return adapter.saveTraining?.(value) ?? false; },
+        async loadNutrition() { return adapter.loadNutrition?.() ?? emptyNutrition(); },
+        async saveNutrition(value) { return adapter.saveNutrition?.(value) ?? null; },
         async loadProgram() { return adapter.loadProgram?.() ?? emptyProgram(); },
         async saveProgram(value) { return adapter.saveProgram?.(value) ?? null; },
         async migration() { return adapter.migration?.() ?? null; },

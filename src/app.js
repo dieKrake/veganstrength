@@ -22,6 +22,7 @@ export async function createApp({ environment = globalThis, repository } = {}) {
     }));
     let data = await repository.load() || emptyData();
     let program = await repository.loadProgram();
+    let nutrition = await repository.loadNutrition();
     let pending = Promise.resolve();
     // Serialize whole user actions, including file reads and confirmations.
     // Each update derives its candidate from the latest committed snapshot.
@@ -35,6 +36,7 @@ export async function createApp({ environment = globalThis, repository } = {}) {
     async function persist(update, options) {
         try {
             data = await repository.write(update(data), options);
+            nutrition = await repository.loadNutrition();
             if (options?.program) program = structuredClone(options.program);
             if (options?.allowReset) program = await repository.loadProgram();
             await settings.renderStatus();
@@ -50,11 +52,25 @@ export async function createApp({ environment = globalThis, repository } = {}) {
             const saved = await repository.saveProgram(update(program));
             if (!saved) throw Error('Der Plan konnte nicht gespeichert werden.');
             program = saved;
+            nutrition = await repository.loadNutrition();
             await settings.renderStatus();
             return true;
         } catch (error) {
             await settings.renderStatus();
             environment.alert('Plan nicht gespeichert: ' + error.message);
+            return false;
+        }
+    }
+    async function persistNutrition(update) {
+        try {
+            const saved = await repository.saveNutrition(update(nutrition));
+            if (!saved) throw Error('Die Lebensmittelbibliothek konnte nicht gespeichert werden.');
+            nutrition = saved;
+            await settings.renderStatus();
+            return true;
+        } catch (error) {
+            await settings.renderStatus();
+            environment.alert('Nicht gespeichert: ' + error.message);
             return false;
         }
     }
@@ -66,7 +82,9 @@ export async function createApp({ environment = globalThis, repository } = {}) {
         setData: loaded => { data = loaded; },
         getProgram: () => program,
         setProgram: loaded => { program = loaded; },
-        persist, persistProgram, runAction, repository, environment,
+        getNutrition: () => nutrition,
+        setNutrition: loaded => { nutrition = loaded; },
+        persist, persistProgram, persistNutrition, runAction, repository, environment,
         storageStatus: () => settings.renderStatus(),
         go: navigation.go,
         refresh: navigation.refresh,
@@ -101,6 +119,7 @@ export async function createApp({ environment = globalThis, repository } = {}) {
         navigate: navigation.go,
         getData: () => structuredClone(data),
         getProgram: () => structuredClone(program),
+        getNutrition: () => structuredClone(nutrition),
         async whenIdle() { await training.flush(); await pending; },
         close() { repository.close(); }
     };

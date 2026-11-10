@@ -105,7 +105,7 @@ test('full backups restore entries, history, drafts, selection and timer while v
     await source.idle();
     await source.element('exportData').click();
     const backup = JSON.parse(await source.downloads[0].blob.text());
-    assert.equal(backup.version, 4);
+    assert.equal(backup.version, 5);
     assert.equal(backup.training.drafts['0'].exercises[0].sets[0].reps, '3');
     assert.ok(backup.training.timer.endAt > Date.now());
     const targetDB = new IDBFactory(), targetStorage = new Storage();
@@ -225,7 +225,7 @@ test('the pre-import backup includes live inputs even before the autosave deboun
     await ui.import(fixture);
     await ui.element('exportPrevious').click();
     const previous = JSON.parse(await ui.downloads[0].blob.text());
-    assert.equal(previous.version, 4);
+    assert.equal(previous.version, 5);
     assert.equal(previous.training.drafts['0'].exercises[0].sets[0].reps, '3');
     assert.equal(previous.training.drafts['0'].exercises[0].sets[0].done, true);
     await ui.idle();

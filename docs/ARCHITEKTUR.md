@@ -1,4 +1,4 @@
-# Vegan Strength – Architektur nach Etappe 4
+# Vegan Strength – Architektur nach Etappe 5
 
 Die App wird direkt als statische Website ausgeliefert. HTML, CSS und native JavaScript-Module benötigen keinen Build-Schritt und laden keine externen Laufzeitbibliotheken. Lokal muss ein HTTP-Server verwendet werden; `file://` ist kein unterstützter Einstiegspunkt.
 
@@ -29,17 +29,18 @@ Fachfunktionen in `domain/` kennen weder DOM noch Browser-Speicher. Features erh
 
 Die Warteschlange umfasst auch Import-Dateilesen und die zugehörige Bestätigung. Während ein Workout gespeichert wird, sind seine Eingabefelder und die Speicherschaltfläche gesperrt. Schnelle Mehrfachklicks erzeugen keine doppelten Workout-Abschlüsse. Andere Änderungen, etwa am Proteintracker, bauen die Trainingsfelder nicht neu auf.
 
-Die asynchrone Repository-Schnittstelle umfasst `load()`, `write(candidate, options)`, `loadTraining()`, `saveTraining()`, `loadProgram()`, `saveProgram()`, `previous()`, `migration()`, `conflict()` und `removePrevious()` sowie `loaded`, `problem` und den verfügbaren Originaltext `raw`. Ein normales Schreiben prüft in derselben IndexedDB-Transaktion die zuletzt gelesene Revision und erhöht sie. Veraltete Fenster dürfen weder Daten noch bestätigte Entwürfe überschreiben. `versionchange` schließt bestehende Verbindungen; blockierte Öffnungen erzeugen einen sichtbaren Fehler.
+Die asynchrone Repository-Schnittstelle umfasst `load()`, `write(candidate, options)`, `loadTraining()`, `saveTraining()`, `loadProgram()`, `saveProgram()`, `loadNutrition()`, `saveNutrition()`, `previous()`, `migration()`, `conflict()` und `removePrevious()` sowie `loaded`, `problem` und den verfügbaren Originaltext `raw`. Ein normales Schreiben prüft in derselben IndexedDB-Transaktion die zuletzt gelesene Revision und erhöht sie. Veraltete Fenster dürfen weder Daten noch bestätigte Entwürfe überschreiben. `versionchange` schließt bestehende Verbindungen; blockierte Öffnungen erzeugen einen sichtbaren Fehler.
 
 Unveränderte alte App-Versionen können weiterhin in ihren früheren localStorage-Schlüssel schreiben. Diese Änderungen werden beim nächsten Lese-/Schreibzugriff erkannt und nicht automatisch eingespielt. Bei einem ausdrücklich bestätigten Import können sowohl der bisherige Datenbankstand als auch dieser zusätzliche Datenzweig gesichert werden. Eine atomare Transaktion über IndexedDB und fremde alte localStorage-Schreiber gibt es nicht.
 
 ## Datenbank und Migration
 
-Datenbankname: `vegan-strength`, Datenbankversion: **2**, internes Schema: **2**. Der Upgrade-Vorgang von Version 1 ergänzt in einer IDB-Upgrade-Transaktion den Store `plans`, setzt einen leeren Planbestand und erhöht Schema und Revision. Bestehende Datenrecords, freie Entwürfe und Wiederherstellungsbytes werden nicht umgeschrieben. Ein Abbruch rollt auch den Versionswechsel zurück.
+Datenbankname: `vegan-strength`, Datenbankversion: **3**, internes Schema: **3**. Upgrades von Version 1 und 2 erfolgen in einer IDB-Upgrade-Transaktion. Version 1 erhält zusätzlich den Store `plans` und einen leeren Planbestand. Version 3 ergänzt `customFoods` und einen leeren Ernährungsbestand in `settings`. Bestehende Kerndaten, Pläne, Entwürfe und Wiederherstellungsbytes werden nicht umgeschrieben. Ein Abbruch rollt auch den Versionswechsel zurück.
 
 | Store | Inhalt |
 | --- | --- |
-| `settings` | Profilrecord mit dem bisherigen Proteinziel |
+| `settings` | Profilrecord mit dem bisherigen Proteinziel; separater Ernährungsrecord mit Portionseinheiten und datierter Zielhistorie |
+| `customFoods` | Wiederverwendbare Produkte mit stabiler ID, Name, g/ml, Protein pro 100 und interner Reihenfolge |
 | `entries` | Bisherige Lebensmitteleinträge, zusätzlich interne Reihenfolge; Index auf `date` |
 | `sessions` | Bisherige Sessions einschließlich aller Sätze; interne Reihenfolge, Indizes auf `date` und `workout` |
 | `drafts` | Aktiver Trainingszustand mit Auswahl, Übungsvorlage, Eingabewerten, Häkchen und Timer |
@@ -49,7 +50,7 @@ Datenbankname: `vegan-strength`, Datenbankversion: **2**, internes Schema: **2**
 
 Die internen `order`-Felder erhalten die ursprüngliche Array-Reihenfolge unabhängig von der Sortierung der IDB-Schlüssel. Beim Lesen werden sie geprüft und aus dem öffentlichen v2-Datenmodell entfernt. IDs und Nutzwerte werden nicht neu erzeugt oder umgerechnet.
 
-Beim ersten Start wird der alte Rohtext einschließlich einer vorhandenen Sicherung vor Import gespeichert, bevor er geparst oder transformiert wird. Die Phasen sind `pending` → `verifying` → `ready`. Der Kopiervorgang ist eine Transaktion über alle beteiligten Stores. Danach werden Daten und Entwürfe zurückgelesen, validiert und gegen den erwarteten Stand verglichen. Erst nach dieser Prüfung wird die Migration aktiviert. Wiederholte Starts können an den gespeicherten Phasen ansetzen; parallele Starts prüfen den aktuellen Zustand innerhalb ihrer Transaktionen.
+Beim ersten Start wird der alte Rohtext einschließlich einer vorhandenen Sicherung vor Import gespeichert, bevor er geparst oder transformiert wird. Die Phasen sind `pending` → `verifying` → `ready`. Der Kopiervorgang ist eine Transaktion über alle beteiligten Stores. Danach werden Kerndaten, Entwürfe, Plan- und Ernährungsbestand zurückgelesen, validiert und gegen den erwarteten Stand verglichen. Erst nach dieser Prüfung wird die Migration aktiviert. Wiederholte Starts können an den gespeicherten Phasen ansetzen; parallele Starts prüfen den aktuellen Zustand innerhalb ihrer Transaktionen.
 
 Die alten Schlüssel `vegan-strength-v2` und `vegan-strength-v2-before-import` bleiben als unveränderte Kopien erhalten, werden aber nicht mehr parallel beschrieben. Der localStorage-Vermerk `vegan-strength-storage` erkennt einen fehlenden früher aktiven Datenbankbestand. In diesem Fall ist eine ausdrückliche Wiederherstellung erforderlich; ein veralteter Snapshot wird nicht automatisch wiederbelebt.
 
@@ -62,13 +63,13 @@ Bestätigtes Löschen schreibt zunächst transaktional einen leeren Bestand, ent
 - Die bisherigen Datenfelder `goal`, `entries` und `sessions` behalten ihre Namen und Bedeutung.
 - Alte v2-Backups und vollständige v2-Rohdaten ohne Exportmetadaten bleiben importierbar.
 - Der separate v2-Export bleibt für ältere App-Versionen verfügbar; er enthält keine laufenden Trainingsentwürfe.
-- Vollständige Backups verwenden `app: "Vegan Strength"`, `version: 4`, `exportedAt`, die bisherigen Datenfelder sowie `training` und `program`. Vollständige v3-Backups bleiben lesbar und erhalten einen leeren Planbestand.
+- Vollständige Backups verwenden `app: "Vegan Strength"`, `version: 5`, `exportedAt`, die bisherigen Datenfelder sowie `training`, `program` und `nutrition`. Versionen 2–4 bleiben lesbar. Alte Backups erhalten einen leeren Ernährungsbestand; v2/v3 zusätzlich einen leeren Planbestand.
 - IDs, Reihenfolge, Dezimalwerte, Null-Gewichte und nicht abgeschlossene Sätze bleiben erhalten. Zeitbasierte Übungen verwenden im Altformat weiterhin `reps` für Sekunden.
-- Die App-/Cache-Version `2.3.2` ist unabhängig von der Backup- und Datenbankversion.
+- Die App-/Cache-Version `2.4.2` ist unabhängig von der Backup- und Datenbankversion.
 
 `training` enthält `current` als Workout-Index, `drafts` als Zuordnung der Workout-Indizes zu den damaligen Workout-/Übungsnamen und Sätzen sowie `timer: { seconds, endAt }`. Freie Entwürfe werden weiterhin gegen die alten Vorlagen geprüft. Planentwürfe verwenden den Schlüssel `plan:<slotId>`, eine optionale `activeDraft`-Auswahl und einen eingefrorenen `context` mit Plan-/Slot-ID, Woche, Bewegungs-/Varianten-IDs, Einheiten, Gewichtsbedeutung, Satzvorgaben und Bewertungen. Namen und Satzanzahlen werden gegen diese geprüften Vorgaben validiert. Unfertige Eingaben dürfen als Strings erhalten bleiben, ohne in den gespeicherten Workout-Daten numerische Grenzwerte zu umgehen. Bei der Darstellung werden sie als HTML-Attributwerte escaped. Zukünftige Änderungen der Vorlagen benötigen auch einen Umgang mit bestehenden Entwürfen.
 
-Backups werden vollständig geprüft; unbekannte Versionen und Felder werden nicht still entfernt. Vor dem bestätigten Import wird der bisherige Bestand einschließlich noch offener Eingaben in derselben Transaktion gesichert. Der v2-Kompatibilitätsexport enthält nur das bisherige Kerndatenformat; Profil, Ausführungsbewertungen, Varianten-Metadaten, Zuordnungen und Entwürfe werden dabei nicht exportiert. Normale Backups enthalten keine rekursiv verschachtelten Wiederherstellungskopien. Diese sind unter „Mehr“ separat herunterladbar.
+Backups werden vollständig geprüft; unbekannte Versionen und Felder werden nicht still entfernt. Vor dem bestätigten Import wird der bisherige Bestand einschließlich noch offener Eingaben in derselben Transaktion gesichert. Der v2-Kompatibilitätsexport enthält nur das bisherige Kerndatenformat; Profil, Ausführungsbewertungen, Varianten-Metadaten, Zuordnungen, Entwürfe, Lebensmittelbibliothek, Portionseinheiten und Zielhistorie werden dabei nicht exportiert. Normale Backups enthalten keine rekursiv verschachtelten Wiederherstellungskopien. Diese sind unter „Mehr“ separat herunterladbar.
 
 ## Trainingsentwürfe und Timer
 
@@ -105,3 +106,18 @@ Die Progressionsfunktion vergleicht zwei Einheiten derselben Bewegung und Varian
 Körpergewichtsvarianten, Hantelgewichte pro Hand, Gesamtlasten und Sekunden werden ausdrücklich unterschieden. Leere Gewichte in abgehakten geplanten Hantelsätzen werden zur Korrektur gemeldet. Freies Training behält seinen bisherigen Datenvertrag. Falls ein Plan nach einer Wiederherstellung in einem anderen Fenster fehlt, bleiben dessen eingefrorene Entwurfswerte erhalten; vor einem Abschluss ohne Plan-Zuordnung ist eine ausdrückliche Bestätigung nötig.
 
 Die Planung verwendet die angegebenen Ausgangswerte (34 Jahre, 189 cm, 84 kg, 3 Klimmzüge, 6 Push-ups), vier Einheiten à 45 Minuten und das vorhandene Home-Gym. Die Basisvorgaben und Zeitannahmen sind in `docs/TRAININGSPLAN.md` dokumentiert. Einstellungen des Proteintrackers bleiben unabhängig vom Planfortschritt erhalten.
+
+
+## Lebensmittelbibliothek und Ernährungsverlauf
+
+`nutrition` enthält `foods: [{ id, name, unit, protein }]`, `entryUnits: [{ entryId, unit }]` und `goals: [{ date, goal }]`. `unit` ist ausschließlich `g` oder `ml`; `protein` bleibt Gramm Protein pro 100 dieser Einheit. Produkte dürfen gleiche Namen mit unterschiedlichen Nährwerten besitzen. Produktreihenfolge und IDs bleiben bei Export und Wiederherstellung erhalten.
+
+Verzehrte Portionen behalten das bisherige v2-Format mit einer Momentaufnahme von Name, Menge und Protein pro 100. Ein Katalogprodukt zu bearbeiten oder zu entfernen verändert diese Portionen nicht. Die Einheit neuer Portionen wird separat über deren ID gespeichert. Bei Altbeständen bleibt die nicht bekannte Einheit ausdrücklich `g/ml`; der Import erfindet keine Zuordnung. Das Entfernen einer Portion entfernt auch ihre Einheitenzuordnung in derselben Transaktion. „Für heute wiederholen“ erzeugt eine neue ID mit heutigen Datum und den Originalwerten der Portion.
+
+Historische Produkte werden nur als ausdrücklich zu ladende Vorschläge angeboten. Name, Nährwert und bekannte Einheit bestimmen die Unterscheidung; gleiche Namen mit unterschiedlichen Proteinwerten werden nicht zusammengeführt. Für alte g/ml-Werte muss die Einheit vor dem Speichern geprüft werden. Das Speichern eines Produkts allein erzeugt keinen Verzehreintrag.
+
+Die Zielhistorie beginnt mit dem ersten normalen bestätigten Schreibvorgang dieser Version und dem an diesem lokalen Kalendertag beobachteten Ziel. Jede spätere Zieländerung gilt ab ihrem Änderungstag. Mehrere Änderungen am selben Tag behalten den zuletzt gespeicherten Tageswert. Vor dem ersten historischen Eintrag bleibt das damalige Ziel unbekannt. Ein Import übernimmt vorhandene v5-Zielhistorie exakt; alte Backups enthalten keine solche Historie. Der aktuelle Tagestracker kann das bekannte aktuelle `goal` anzeigen, während frühere Tage ohne Historie keinen Zielprozentsatz erhalten.
+
+Die Statistik bietet 7, 28 und 56 lokale Kalendertage einschließlich heute. Der Kalendertage-Mittelwert zählt Tage ohne Einträge als 0; der separat bezeichnete Mittelwert erfasster Tage zählt jeden Tag mit mindestens einem Eintrag, auch bei 0 g Protein. Die bisherige Kennzahl „Ø letzte 7 Tage“ bleibt unabhängig von der gewählten Diagrammspanne erhalten. Zielerreichung zählt ausschließlich Tage mit bekanntem historischen Ziel. Das Diagramm ist horizontal scrollbar und öffnet bei den neuesten Tagen; alle Werte stehen zusätzlich in einer zugänglichen Tabelle. Die Auswertung lädt derzeit den vollständigen lokalen Bestand; gezielte Abfragen für lange Historien bleiben Teil der nächsten Etappe.
+
+Produkt-, Portions- und Zieländerungen, Import sowie die Sicherung vor Import verwenden dieselbe Revisionsprüfung und atomare Transaktion wie die übrigen Nutzdaten. Ein fehlgeschlagener Schreibvorgang veröffentlicht keinen neuen Katalog und lässt Eingabefelder erhalten. Fehlerhafte gespeicherte Zusatzdaten führen zu einem sichtbaren Ladefehler mit Rohdatenexport; sie werden nicht als leerer Katalog akzeptiert.

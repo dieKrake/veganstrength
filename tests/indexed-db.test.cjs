@@ -245,7 +245,7 @@ test('a blocked database opening gives a recovery message without any fallback w
 
 test('an unknown future storage marker is never overwritten', async () => {
     const env = await setup();
-    const marker = JSON.stringify({ engine: 'indexeddb', version: 3, status: 'active' });
+    const marker = JSON.stringify({ engine: 'indexeddb', version: 4, status: 'active' });
     env.storage.values.set('vegan-strength-storage', marker);
     assert.equal(await env.store.load(), null);
     assert.match(env.store.problem.message, /Unbekannte Speicherversion/);

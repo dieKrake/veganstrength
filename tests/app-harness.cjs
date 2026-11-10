@@ -154,6 +154,7 @@ async function app(storage = new Storage(), { confirm = true, beforeWrite, index
         total: date => dayTotal(application.getData(), date),
         data: application.getData,
         program: application.getProgram,
+        nutrition: application.getNutrition,
         draft() {
             const list = ids.get('exerciseList');
             const inputs = list.querySelectorAll('input');

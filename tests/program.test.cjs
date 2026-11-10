@@ -231,13 +231,13 @@ test('a new plan preserves the old plan, historical links and a pending old-plan
     ui.close();
 });
 
-test('v4 backups restore profile, program, sessions, frozen targets, assessments and drafts', async () => {
+test('full backups restore profile, program, sessions, frozen targets, assessments and drafts', async () => {
     const { ui } = await startUI(); await openSlot(ui); await ui.checkSet('2', '0');
     const reserve = ui.element('exerciseList').querySelectorAll('[data-rir]')[0]; reserve.value = '2'; reserve.onchange();
     const clean = ui.element('exerciseList').querySelectorAll('[data-clean]')[0]; clean.checked = true; clean.onchange();
     await ui.element('exportData').click();
     const backup = JSON.parse(await ui.downloads[0].blob.text());
-    assert.equal(backup.version, 4);
+    assert.equal(backup.version, 5);
     const copy = await app(new Storage(), { indexedDB: new IDBFactory() });
     await copy.import(backup); copy.navigate('training');
     assert.deepEqual(copy.program(), ui.program());
@@ -258,7 +258,7 @@ test('v3 backups remain readable and never silently acquire a plan association',
     assert.equal(restored.program.activePlanId, null);
 });
 
-test('v4 import rejects dangling links or altered exercise targets before replacing data', async () => {
+test('full backup import rejects dangling links or altered exercise targets before replacing data', async () => {
     const { ui } = await startUI(); await openSlot(ui); await ui.checkSet('2', '0');
     await ui.element('exportData').click();
     const backup = JSON.parse(await ui.downloads[0].blob.text());

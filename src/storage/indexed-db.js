@@ -1,3 +1,4 @@
+import { emptyNutrition, recordGoal, validateNutrition } from '../domain/nutrition.js';
 import { emptyProgram } from '../domain/program.js';
 import { validateProgram } from '../domain/program-validation.js';
 import { emptyData, validateData } from '../domain/validation.js';
@@ -5,9 +6,9 @@ import { emptyTraining, validateTraining } from '../domain/training-state.js';
 import { KEY, RECOVERY_KEY } from './local-storage.js';
 
 export const DB_NAME = 'vegan-strength';
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 export const MARKER_KEY = 'vegan-strength-storage';
-const STORES = ['settings', 'entries', 'sessions', 'drafts', 'meta', 'recovery', 'plans'];
+const STORES = ['settings', 'entries', 'sessions', 'drafts', 'meta', 'recovery', 'plans', 'customFoods'];
 const request = value => {
     const result = new Promise((resolve, reject) => {
         value.onsuccess = () => resolve(value.result);
@@ -17,10 +18,10 @@ const request = value => {
     return result;
 };
 const conflict = () => Error('Die Daten wurden in einem anderen Fenster geändert. Bitte gespeicherte Daten erneut laden; deine Trainingseingaben bleiben dabei erhalten.');
-const fullText = (data, training, program) => JSON.stringify({ app: 'Vegan Strength', version: 4, ...data, training, program });
+const fullText = (data, training, program, nutrition) => JSON.stringify({ app: 'Vegan Strength', version: 5, ...data, training, program, nutrition });
 
 export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = () => {} }) {
-    let db = null, current = null, training = emptyTraining(), program = emptyProgram(), revision = null, raw = null, problem = null;
+    let db = null, current = null, training = emptyTraining(), program = emptyProgram(), nutrition = emptyNutrition(), revision = null, raw = null, problem = null;
     let legacy = null, readable = false, active = false, databaseRaw = null;
 
     async function open() {
@@ -44,10 +45,11 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
                     try {
                         const state = previous.result;
                         if (!state) return;
-                        if (state.schema !== 1) throw Error('Unbekanntes Schema; Speicheraktualisierung abgebrochen.');
+                        if (![1, 2].includes(state.schema)) throw Error('Unbekanntes Schema; Speicheraktualisierung abgebrochen.');
                         // The upgrade transaction preserves all old rows and drafts.
-                        tx.objectStore('plans').put({ id: 'active', value: emptyProgram() });
-                        tx.objectStore('meta').put({ ...state, schema: 2, revision: state.revision + 1 });
+                        if (state.schema === 1) tx.objectStore('plans').put({ id: 'active', value: emptyProgram() });
+                        tx.objectStore('settings').put({ id: 'nutrition', value: { entryUnits: [], goals: [] } });
+                        tx.objectStore('meta').put({ ...state, schema: 3, revision: state.revision + 1 });
                     } catch (error) { upgradeFailure = error; tx.abort(); }
                 };
             };
@@ -85,7 +87,7 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
         }
     }
     const meta = () => transaction(['meta'], 'readonly', tx => request(tx.objectStore('meta').get('state')));
-    function marker(status) { getStorage().setItem(MARKER_KEY, JSON.stringify({ engine: 'indexeddb', version: 2, status })); }
+    function marker(status) { getStorage().setItem(MARKER_KEY, JSON.stringify({ engine: 'indexeddb', version: 3, status })); }
     function legacyNow() { return getStorage().getItem(KEY); }
     function checkLegacy(expected, allowReplacement = false) {
         const latest = legacyNow();
@@ -102,25 +104,30 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
     }
     async function readAll() {
         return transaction(STORES, 'readonly', async tx => {
-            const [state, profile, entries, sessions, draft, planRecord] = await Promise.all([
+            const [state, profile, entries, sessions, draft, planRecord, foods, nutritionRecord] = await Promise.all([
                 request(tx.objectStore('meta').get('state')),
                 request(tx.objectStore('settings').get('profile')),
                 request(tx.objectStore('entries').getAll()),
                 request(tx.objectStore('sessions').getAll()),
                 request(tx.objectStore('drafts').get('active')),
-                request(tx.objectStore('plans').get('active'))
+                request(tx.objectStore('plans').get('active')),
+                request(tx.objectStore('customFoods').getAll()),
+                request(tx.objectStore('settings').get('nutrition'))
             ]);
             // Keep a downloadable dump even if validation or ordering fails.
-            raw = fullText({ goal: profile?.goal, entries, sessions }, draft?.value, planRecord?.value);
+            raw = fullText({ goal: profile?.goal, entries, sessions }, draft?.value, planRecord?.value, { ...nutritionRecord?.value, foods });
             const data = validateData({ goal: profile?.goal, entries: ordered(entries), sessions: ordered(sessions) });
             const draftState = validateTraining(draft?.value);
             const planState = validateProgram(planRecord?.value, data, draftState);
-            return { state, data, training: draftState, program: planState };
+            const nutritionState = validateNutrition({ ...nutritionRecord?.value, foods: ordered(foods) }, data);
+            return { state, data, training: draftState, program: planState, nutrition: nutritionState };
         });
     }
-    function putData(tx, data, draftState, planState = emptyProgram()) {
-        for (const name of ['settings', 'entries', 'sessions', 'drafts']) tx.objectStore(name).clear();
+    function putData(tx, data, draftState, planState = emptyProgram(), nutritionState = emptyNutrition()) {
+        for (const name of ['settings', 'entries', 'sessions', 'drafts', 'customFoods']) tx.objectStore(name).clear();
         tx.objectStore('settings').put({ id: 'profile', goal: data.goal });
+        tx.objectStore('settings').put({ id: 'nutrition', value: { entryUnits: nutritionState.entryUnits, goals: nutritionState.goals } });
+        nutritionState.foods.forEach((food, order) => tx.objectStore('customFoods').put({ ...food, order }));
         data.entries.forEach((entry, order) => tx.objectStore('entries').put({ ...entry, order }));
         data.sessions.forEach((session, order) => tx.objectStore('sessions').put({ ...session, order }));
         tx.objectStore('drafts').put({ id: 'active', value: draftState });
@@ -149,11 +156,11 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
                 if (await request(store.get('state'))) return;
                 tx.objectStore('recovery').put({ id: 'migration', raw: source, previous });
                 if (previous !== null) tx.objectStore('recovery').put({ id: 'before-import', raw: previous });
-                store.put({ id: 'state', schema: 2, phase: 'pending', revision: 0, legacyRaw: source });
+                store.put({ id: 'state', schema: 3, phase: 'pending', revision: 0, legacyRaw: source });
             });
             state = await meta();
         }
-        if (state.schema !== 2 || !Number.isSafeInteger(state.revision) || state.revision < 0
+        if (state.schema !== 3 || !Number.isSafeInteger(state.revision) || state.revision < 0
             || !(state.legacyRaw === null || typeof state.legacyRaw === 'string')) throw Error('Unbekanntes oder beschädigtes Speicherformat. Bitte Originaldaten sichern.');
         revision = state.revision;
         if (state.phase === 'ready') return;
@@ -172,7 +179,9 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
         const verified = await readAll();
         if (verified.state.phase === 'ready') return;
         if (JSON.stringify(verified.data) !== JSON.stringify(source)
-            || JSON.stringify(verified.training) !== JSON.stringify(emptyTraining())) throw Error('Die Übernahme konnte nicht vollständig geprüft werden. Der Originalstand bleibt erhalten.');
+            || JSON.stringify(verified.training) !== JSON.stringify(emptyTraining())
+            || JSON.stringify(verified.program) !== JSON.stringify(emptyProgram())
+            || JSON.stringify(verified.nutrition) !== JSON.stringify(emptyNutrition())) throw Error('Die Übernahme konnte nicht vollständig geprüft werden. Der Originalstand bleibt erhalten.');
         checkLegacy(state.legacyRaw);
         await transaction(['meta'], 'readwrite', async tx => {
             const store = tx.objectStore('meta'), latest = await request(store.get('state'));
@@ -191,7 +200,7 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
             const savedMarker = getStorage().getItem(MARKER_KEY);
             if (savedMarker !== null) {
                 const value = JSON.parse(savedMarker);
-                if (value?.engine !== 'indexeddb' || ![1, 2].includes(value.version) || !['active', 'cleared'].includes(value.status)) {
+                if (value?.engine !== 'indexeddb' || ![1, 2, 3].includes(value.version) || !['active', 'cleared'].includes(value.status)) {
                     throw Error('Unbekannte Speicherversion. Bitte die passende App-Version verwenden.');
                 }
             }
@@ -204,41 +213,47 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
             current = result.data;
             training = result.training;
             program = result.program;
+            nutrition = result.nutrition;
             checkLegacy(result.state.legacyRaw);
             marker('active');
             active = true;
-            raw = fullText(current, training, program);
+            raw = fullText(current, training, program, nutrition);
             databaseRaw = raw;
             problem = null;
             return structuredClone(current);
         } catch (error) { problem = error; return current ? structuredClone(current) : null; }
     }
-    async function write(candidate, { replacement = false, training: draftState, previousTraining, program: planState, previousProgram, allowReset = false } = {}) {
+    async function write(candidate, { replacement = false, training: draftState, previousTraining, program: planState, previousProgram, nutrition: nutritionState, previousNutrition, allowReset = false } = {}) {
         if (allowReset) return clear();
         try {
             if (!db || !readable || (!active && !replacement)) throw Error('Der Gerätespeicher ist nicht geladen. Bitte Originaldaten sichern und erneut laden oder ein Backup wiederherstellen.');
             const next = validateData(candidate), nextTraining = validateTraining(draftState ?? training);
+            const nextNutrition = validateNutrition(replacement ? (nutritionState ?? emptyNutrition()) : recordGoal(nutritionState ?? nutrition, next.goal), next);
+            const priorNutrition = replacement && current ? validateNutrition(previousNutrition ?? nutrition, current ?? next) : null;
             const nextProgram = validateProgram(planState ?? program, next, nextTraining);
-            const priorProgram = replacement ? validateProgram(previousProgram ?? program, current ?? next, previousTraining ?? training) : null;
-            const priorTraining = replacement ? validateTraining(previousTraining ?? training) : null;
+            const priorProgram = replacement && current ? validateProgram(previousProgram ?? program, current ?? next, previousTraining ?? training) : null;
+            const priorTraining = replacement && current ? validateTraining(previousTraining ?? training) : null;
             const latestLegacy = checkLegacy(legacy, replacement);
             const expectedRevision = revision;
             const nextRevision = await transaction(STORES, 'readwrite', async tx => {
                 const store = tx.objectStore('meta'), latest = await request(store.get('state'));
                 if ((latest?.revision ?? null) !== expectedRevision) throw conflict();
                 if (replacement) {
-                    tx.objectStore('recovery').put({ id: 'before-import', raw: current ? fullText(current, priorTraining, priorProgram) : raw });
+                    tx.objectStore('recovery').put({ id: 'before-import', raw: current ? fullText(current, priorTraining, priorProgram, priorNutrition) : raw });
                     if (latestLegacy !== legacy) tx.objectStore('recovery').put({ id: 'legacy-conflict', raw: latestLegacy });
                 } else if (latest.phase !== 'ready') throw Error('Die Datenübernahme ist noch nicht abgeschlossen.');
-                putData(tx, next, nextTraining, nextProgram);
-                const updated = { id: 'state', schema: 2, phase: 'ready', revision: (latest?.revision ?? 0) + 1, legacyRaw: latestLegacy };
+                putData(tx, next, nextTraining, nextProgram, nextNutrition);
+                const updated = { id: 'state', schema: 3, phase: 'ready', revision: (latest?.revision ?? 0) + 1, legacyRaw: latestLegacy };
                 store.put(updated);
                 return updated.revision;
             });
             // During explicit recovery, verify the newly activated database too.
             if (!active) {
                 const verified = await readAll();
-                if (JSON.stringify(verified.data) !== JSON.stringify(next)) throw Error('Wiederherstellung konnte nicht geprüft werden. Bitte erneut laden.');
+                if (JSON.stringify(verified.data) !== JSON.stringify(next)
+                    || JSON.stringify(verified.training) !== JSON.stringify(nextTraining)
+                    || JSON.stringify(verified.program) !== JSON.stringify(nextProgram)
+                    || JSON.stringify(verified.nutrition) !== JSON.stringify(nextNutrition)) throw Error('Wiederherstellung konnte nicht geprüft werden. Bitte erneut laden.');
                 marker('active');
             }
             revision = nextRevision;
@@ -246,8 +261,9 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
             current = next;
             training = nextTraining;
             program = nextProgram;
+            nutrition = nextNutrition;
             active = true;
-            raw = fullText(current, training, program);
+            raw = fullText(current, training, program, nutrition);
             databaseRaw = raw;
             problem = null;
             return structuredClone(current);
@@ -269,7 +285,7 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
             });
             revision = nextRevision;
             training = next;
-            raw = fullText(current, training, program);
+            raw = fullText(current, training, program, nutrition);
             databaseRaw = raw;
             problem = null;
             return true;
@@ -289,7 +305,7 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
                 if ((latest?.revision ?? null) !== expectedRevision) throw conflict();
                 putData(tx, emptyData(), emptyTraining());
                 tx.objectStore('recovery').clear();
-                tx.objectStore('meta').put({ id: 'state', schema: 2, phase: 'clearing', revision: (latest?.revision ?? 0) + 1, legacyRaw: null });
+                tx.objectStore('meta').put({ id: 'state', schema: 3, phase: 'clearing', revision: (latest?.revision ?? 0) + 1, legacyRaw: null });
                 return (latest?.revision ?? 0) + 1;
             });
             revision = nextRevision;
@@ -299,8 +315,9 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
             current = emptyData();
             training = emptyTraining();
             program = emptyProgram();
+            nutrition = emptyNutrition();
             active = true;
-            raw = fullText(current, training, program);
+            raw = fullText(current, training, program, nutrition);
             databaseRaw = raw;
             problem = null;
             return structuredClone(current);
@@ -315,6 +332,8 @@ export function createIndexedDBStore({ indexedDB, getStorage, onVersionChange = 
     }
     return {
         load, write, saveTraining, clear,
+        async loadNutrition() { return structuredClone(nutrition); },
+        async saveNutrition(candidate) { await write(current, { nutrition: candidate }); return structuredClone(nutrition); },
         async loadProgram() { return structuredClone(program); },
         async saveProgram(candidate) { await write(current, { program: candidate }); return structuredClone(program); },
         async loadTraining() { if (!current) return emptyTraining(); return structuredClone(training); },

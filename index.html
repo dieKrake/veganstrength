@@ -118,10 +118,11 @@
         </section>
         <section id="protein" class="section">
             <h2>Veganer Proteintracker</h2>
+            <div class="row day-navigation"><button class="btn ghost" id="previousFoodDay" aria-label="Vorheriger Tag">← Tag</button><button class="btn ghost" id="todayFoodDay">Heute</button><button class="btn ghost" id="nextFoodDay" aria-label="Nächster Tag">Tag →</button></div>
             <div class="card hero">
                 <div class="row">
                     <div>
-                        <div class="eyebrow">Heute</div>
+                        <div class="eyebrow" id="proteinDayLabel">Heute</div>
                         <div class="value"><span id="proteinTotal">0</span> <span class="small">/ <span
                                     id="proteinGoalLabel">150</span> g</span></div>
                     </div><span class="pill" id="proteinPercent">0 %</span>
@@ -144,16 +145,25 @@
                 </div>
             </div>
             <div class="card">
-                <h3>Eigenes Lebensmittel</h3>
-                <div class="stack"><input class="input" id="customName" placeholder="Name, z. B. Lieblings-Tofu"
+                <h3 id="libraryEditorTitle">Eigenes Lebensmittel</h3>
+                <div class="stack"><label for="customName">Produktname</label><input class="input" id="customName" placeholder="Name, z. B. Lieblings-Tofu"
                         aria-label="Name des Lebensmittels">
                     <div class="grid">
-                        <div><label for="customP">Protein pro 100 g / ml</label><input class="input" id="customP"
+                        <div><label for="customUnit">Einheit der Menge</label><select class="input" id="customUnit"><option value="g">Gramm (g)</option><option value="ml">Milliliter (ml)</option></select></div>
+                    <div><label for="customP">Protein pro 100 g / ml</label><input class="input" id="customP"
                                 type="number" min="0" max="100" step="0.1" placeholder="z. B. 17"></div>
                         <div><label for="customAmount">Menge (g / ml)</label><input class="input" id="customAmount"
                                 type="number" min="1" max="5000" value="100"></div>
-                    </div><button class="btn ghost wide" id="addCustom">+ Eigenes Produkt eintragen</button>
+                    </div><button class="btn primary wide" id="saveCustomFood">In meiner Bibliothek speichern</button><button class="btn ghost wide hidden" id="cancelFoodEdit">Bearbeitung abbrechen</button><button class="btn ghost wide" id="addCustom">+ Einmalige Portion eintragen</button>
                 </div>
+            </div>
+            <div class="card">
+                <h3>Meine Lebensmittel</h3><p class="small" id="libraryStatus" role="status" aria-live="polite"></p>
+                <div id="customFoodList"></div>
+                <details class="spaced"><summary>Aus früheren Einträgen übernehmen</summary>
+                    <p class="small" id="historicalFoodNote"></p><label for="historicalFoodSelect">Früheres Produkt</label><select class="input" id="historicalFoodSelect"></select>
+                    <button class="btn ghost wide spaced" id="loadHistoricalFood">Als Vorschlag laden</button>
+                </details>
             </div>
             <div class="card">
                 <div class="row">
@@ -173,9 +183,12 @@
                 </div>
             </div>
             <div class="card spaced">
-                <h3>Protein – letzte 7 Tage</h3>
-                <div id="proteinChart" class="chart"></div>
-                <div class="small">Balken: Gramm Protein pro Tag</div>
+                <h3 id="nutritionChartTitle">Protein – letzte 7 Tage</h3>
+                <label for="nutritionRange">Zeitraum</label><select class="input" id="nutritionRange"><option value="7">7 Tage</option><option value="28">28 Tage</option><option value="56">56 Tage</option></select>
+                <p class="small" id="nutritionSummary"></p>
+                <div class="nutrition-chart-scroll" id="nutritionChartViewport" tabindex="0" aria-label="Proteinverlauf, horizontal scrollbar"><div id="proteinChart" class="chart nutrition-chart" aria-hidden="true"></div></div>
+                <p class="small">Balken: Gramm Protein pro Tag · Linie: bekanntes Tagesziel.</p><p class="small" id="nutritionGoalSummary"></p>
+                <details><summary>Alle Tageswerte als Tabelle</summary><div id="nutritionTable" class="nutrition-table"></div></details>
             </div>
             <div class="card">
                 <h3>Letzte Trainings</h3>
@@ -225,7 +238,7 @@
                     Keine Registrierung, keine Übertragung an einen Server. Beim Löschen von Browser-/Website-Daten
                     können Einträge verloren gehen.</p>
                 <div class="stack"><button class="btn primary wide" id="exportData">⬇ JSON-Backup
-                        exportieren</button><button class="btn ghost wide" id="exportLegacyData">v2-Backup ohne Pläne und Entwürfe</button><label for="importFile">Backup wiederherstellen (JSON)</label><input
+                        exportieren</button><button class="btn ghost wide" id="exportLegacyData">v2-Backup nur Einträge, Trainings und Ziel</button><label for="importFile">Backup wiederherstellen (JSON)</label><input
                         class="input" type="file" id="importFile" accept="application/json,.json"><button
                         class="btn ghost wide hidden" id="exportPrevious">Sicherung vor dem letzten Import herunterladen</button><button
                         class="btn ghost wide hidden" id="exportMigration">Ursprünglichen Datenstand herunterladen</button><button
@@ -233,7 +246,7 @@
                         class="btn danger wide" id="clearData">Alle lokalen Daten löschen</button></div>
                 <p class="small">Beim Import werden deine bisherigen Daten nach Bestätigung ersetzt. Vorher wird der
                     Originalstand auf diesem Gerät gesichert. Du kannst diese Sicherung anschließend herunterladen.</p>
-                <p class="small">Vollständige Backups enthalten auch Profil, Pläne, Trainingszuordnungen, offene Entwürfe und den Pausentimer.
+                <p class="small">Vollständige Backups enthalten auch Profil, Pläne, Trainingszuordnungen, offene Entwürfe, den Pausentimer, eigene Lebensmittel und die Zielhistorie.
                     Ältere v2-Backups bleiben importierbar. Deine Daten werden weiterhin nur auf diesem Gerät gespeichert.</p>
             </div>
             <div class="card">
